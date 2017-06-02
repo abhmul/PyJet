@@ -178,19 +178,24 @@ class NpDataset(Dataset):
         y -- The target data as a numpy array (optional)
     """
     # TODO define the kfold method for NpDataset
-    def __init__(self, *args):
+    def __init__(self, x, y=None):
         super(NpDataset, self).__init__()
 
-        self.np_data = args
-        for arg in self.np_data:
-            if arg.shape[0] != len(self):
-                raise ValueError("All input arrays must have the same size on axis 0.")
+        self.x = x
+        self.y = y
+        self.output_labels = self.y is not None
 
     def __len__(self):
-        return self.args[0].shape[0]
+        return self.x.shape[0]
+
+    def toggle_labels(self):
+        self.output_labels = not self.output_labels
 
     def create_batch(self, batch_indicies):
-        return tuple(data[batch_indicies] for data in self.np_data)
+        outputs = [self.x[batch_indicies],]
+        if self.output_labels:
+            outputs.append(self.y[batch_indicies])
+        return outputs[0] if len(outputs) == 1 else outputs
 
     def validation_split(self, split=0.2, shuffle=False, seed=None,
                          destroy_self=False):
