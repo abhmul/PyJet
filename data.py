@@ -2,7 +2,6 @@ import threading
 import numpy as np
 
 # TODO Create a dataset for HDF5 and Torch Tensor
-# TODO Create a DatasetGenerator constructor for python generators
 
 class Dataset(object):
     """
@@ -39,21 +38,45 @@ class Dataset(object):
     def kfold(self, k, **kwargs):
         raise NotImplementedError()
 
-class DatasetGenerator(object):
+class BatchGenerator(object):
     """
-    An iterator to create batches for a model.
+    An abstarct iterator to create batches for a model.
+
+    # Arguments:
+        steps_per_epoch -- The number of iterations in one epoch (optional)
+        batch_size -- The number of samples in one batch
+    """
+
+    def __init__(self, steps_per_epoch=None, batch_size=None):
+        self.steps_per_epoch = steps_per_epoch
+        self.batch_size = batch_size
+
+    def __iter__(self):
+        raise NotImplementedError()
+
+    def __next__(self):
+        raise NotImplementedError()
+
+class DatasetGenerator(BatchGenerator):
+    """
+    An iterator to create batches for a model using a Dataset. 2 of the
+    following must be defined
+        -- The input Dataset's length
+        -- steps_per_epoch
+        -- batch_size
 
     # Arguments
         dataset -- the dataset to generate from
-        steps_per_epoch -- The number of iterations in one epoch
+        steps_per_epoch -- The number of iterations in one epoch (optional)
+        batch_size -- The number of samples in one batch (optional)
         shuffle -- Whether or not to shuffle the dataset before each epoch
                    default: True
+        seed -- A seed for the random number generator (optional).
     """
     # TODO add threading support
     def __init__(self, dataset, steps_per_epoch=None, batch_size=None, shuffle=False, seed=None):
+        super(DatasetGenerator, self).__init__(steps_per_epoch, batch_size)
         self.dataset = dataset
-        self.steps_per_epoch = steps_per_epoch
-        self.batch_size = batch_size
         self.shuffle = shuffle
         self.index_array = None
         self.lock = threading.Lock()
@@ -120,12 +143,18 @@ class DatasetGenerator(object):
     def toggle_shuffle(self):
         self.shuffle = not self.shuffle
 
-class DatasetPyGenerator(object):
+class BatchPyGenerator(BatchGenerator):
+    """
+    A BatchGenerator that generates using a python iterator.
+
+    # Arguments:
+        pygen -- the python iterator from which to generate batches
+        steps_per_epoch -- The number of iterations in one epoch
+    """
 
     def __init__(self, pygen, steps_per_epoch):
+        super(BatchPyGenerator, self).__init__(steps_per_epoch)
         self.pygen = pygen
-        self.steps_per_epoch = steps_per_epoch
-        self.index_array = None
 
     def __iter__(self):
         return self.pygen
