@@ -64,6 +64,8 @@ class DatasetGenerator(BatchGenerator):
         -- The input Dataset's length
         -- steps_per_epoch
         -- batch_size
+    Also, if the Dataset's length is not defined, its create_batch method
+    should not take any inputs
 
     # Arguments
         dataset -- the dataset to generate from
@@ -104,6 +106,7 @@ class DatasetGenerator(BatchGenerator):
         # TODO I hate the structure of this. If I keep this, then it should
         # really be avoided and gens should be constructed from python
         # iterators.
+        # EDIT - I think I fixed my issue with this
         """
         This is an iterator that generates the necessary arguments needed to
         create each batch. By default, it will generate indicies from an index
@@ -136,8 +139,11 @@ class DatasetGenerator(BatchGenerator):
 
     def __next__(self):
         # This is a critical section, so we lock when we need the next indicies
-        with self.lock:
-            batch_arguments = next(self.batch_argument_generator())
+        if self.index_array is not None:
+            with self.lock:
+                batch_arguments = next(self.batch_argument_generator())
+        else:
+            batch_arguments = tuple([])
         return self.dataset.create_batch(*batch_arguments)
 
     def toggle_shuffle(self):
@@ -172,17 +178,19 @@ class NpDataset(Dataset):
         y -- The target data as a numpy array (optional)
     """
     # TODO define the kfold method for NpDataset
-    def __init__(self, x, y=None):
+    def __init__(self, *args):
         super(NpDataset, self).__init__()
 
-        self.x = x
-        self.y = y
+        self.np_data = args
+        for arg in self.np_data:
+            if arg.shape[0] != len(self):
+                raise ValueError("All input arrays must have the same size on axis 0.")
 
     def __len__(self):
-        return self.x.shape[0]
+        return self.args[0].shape[0]
 
     def create_batch(self, batch_indicies):
-        return self.x[batch_indicies], self.y[batch_indicies]
+        return tuple(data[batch_indicies] for data in self.np_data)
 
     def validation_split(self, split=0.2, shuffle=False, seed=None,
                          destroy_self=False):
