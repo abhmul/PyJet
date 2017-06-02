@@ -1,6 +1,9 @@
 import threading
 import numpy as np
 
+# TODO Create a dataset for HDF5 and Torch Tensor
+# TODO Create a DatasetGenerator constructor for python generators
+
 class Dataset(object):
     """
     An abstract container for data designed to be passed to a model.
@@ -14,7 +17,7 @@ class Dataset(object):
     """
 
     def __init__(self, *args, **kwargs):
-        raise NotImplementedError()
+        pass
 
     def __len__(self):
         """The length is used downstream by the generator if it is not inf."""
@@ -117,8 +120,21 @@ class DatasetGenerator(object):
     def toggle_shuffle(self):
         self.shuffle = not self.shuffle
 
+class DatasetPyGenerator(object):
 
-def NpDataset(Dataset):
+    def __init__(self, pygen, steps_per_epoch):
+        self.pygen = pygen
+        self.steps_per_epoch = steps_per_epoch
+        self.index_array = None
+
+    def __iter__(self):
+        return self.pygen
+
+    def __next__(self):
+        return next(self.pygen)
+
+
+class NpDataset(Dataset):
     """
     A Dataset that is built from numpy data.
 
@@ -128,6 +144,8 @@ def NpDataset(Dataset):
     """
     # TODO define the kfold method for NpDataset
     def __init__(self, x, y=None):
+        super(NpDataset, self).__init__()
+
         self.x = x
         self.y = y
 
@@ -182,3 +200,15 @@ def NpDataset(Dataset):
         if destroy_self:
             self = None
         return train_data, val_data
+
+class HDF5Dataset(Dataset):
+
+    def __init__(self, x, y=None):
+        super(HDF5Dataset, self).__init__()
+        raise NotImplementedError()
+
+class TorchDataset(Dataset):
+
+    def __init__(self, x, y=None):
+        super(TorchDataset, self).__init__()
+        raise NotImplementedError()
