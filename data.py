@@ -2,6 +2,7 @@ import threading
 import numpy as np
 
 # TODO Create a dataset for HDF5 and Torch Tensor
+# BUG MOST OF THIS WILL BE THROWN OUT
 
 class Dataset(object):
     """
@@ -15,12 +16,16 @@ class Dataset(object):
         it should not be mutated in any way.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, verbosity=VERBOSITY.NORMAL, **kwargs):
         pass
 
     def __len__(self):
         """The length is used downstream by the generator if it is not inf."""
         return float('inf')
+
+    def log(self, statement, verbosity):
+        if self.verbosity >= verbosity:
+            print(statement)
 
     def create_batch(self, *args, **kwargs):
         """
@@ -98,7 +103,7 @@ class DatasetGenerator(BatchGenerator):
                 raise ValueError()
             self.batch_size = (len(self.dataset) + self.steps_per_epoch - 1) / \
                               self.steps_per_epoch
-        if self.steps_per_epoch = None:
+        if self.steps_per_epoch is None:
             self.steps_per_epoch = (len(self.dataset) + self.batch_size - 1) / \
                                    self.batch_size
 
