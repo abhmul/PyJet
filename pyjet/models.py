@@ -26,6 +26,7 @@ class SLModel(nn.Module):
     def to_numpy_pred(self, preds):
         return preds.numpy()
 
+    # TODO add in basic metrics (accuracy, top-k, etc.)
     def train_on_batch(self, x, y, optimizer, loss_fn, metrics=tuple([])):
         torch_x = self.to_torch_x(x)
         preds = self(torch_x)
