@@ -1,8 +1,11 @@
 import threading
 import numpy as np
+from collections import namedtuple
 
 # TODO Create a dataset for HDF5 and Torch Tensor
 # BUG MOST OF THIS WILL BE THROWN OUT
+
+VERBOSITY = namedtuple('VERBOSITY', ['QUIET', 'NORMAL', 'VERBOSE', 'DEBUG'])(0,1,2,3)
 
 class Dataset(object):
     """
@@ -85,13 +88,14 @@ class DatasetGenerator(BatchGenerator):
         super(DatasetGenerator, self).__init__(steps_per_epoch, batch_size)
         self.dataset = dataset
         self.shuffle = shuffle
+        self.seed = seed
         self.index_array = None
         self.lock = threading.Lock()
 
         # Some input checking
         check = (int(self.steps_per_epoch is not None) + \
                  int(self.batch_size is not None) + \
-                 int(len(self.dataset != float("inf"))))
+                 int(len(self.dataset) != float("inf")))
         if check < 2:
             raise ValueError("2 of the following must be defined: len(dataset),"
                              " steps_per_epoch, and batch_size.")
@@ -101,11 +105,11 @@ class DatasetGenerator(BatchGenerator):
         if self.batch_size is None:
             if self.steps_per_epoch is None:
                 raise ValueError()
-            self.batch_size = (len(self.dataset) + self.steps_per_epoch - 1) / \
-                              self.steps_per_epoch
+            self.batch_size = int((len(self.dataset) + self.steps_per_epoch - 1) / \
+                              self.steps_per_epoch)
         if self.steps_per_epoch is None:
-            self.steps_per_epoch = (len(self.dataset) + self.batch_size - 1) / \
-                                   self.batch_size
+            self.steps_per_epoch = int((len(self.dataset) + self.batch_size - 1) / \
+                                   self.batch_size)
 
     def batch_argument_generator(self):
         # TODO I hate the structure of this. If I keep this, then it should
@@ -136,8 +140,8 @@ class DatasetGenerator(BatchGenerator):
             # Shuffle if we need to
             if self.shuffle:
                 np.random.shuffle(self.index_array)
-            for i in range(0, len(self.index_array), batch_size):
-                yield (self.index_array[i:i+batch_size],)
+            for i in range(0, len(self.index_array), self.batch_size):
+                yield (self.index_array[i:i+self.batch_size],)
 
     def __iter__(self):
         return self
@@ -200,7 +204,7 @@ class NpDataset(Dataset):
         outputs = [self.x[batch_indicies],]
         if self.output_labels:
             outputs.append(self.y[batch_indicies])
-        return outputs[0] if len(outputs) == 1 else outputs
+        return outputs[0] if len(outputs) == 1 else tuple(outputs)
 
     def validation_split(self, split=0.2, shuffle=False, seed=None,
                          destroy_self=False):
