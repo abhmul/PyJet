@@ -3,8 +3,8 @@ import numpy as np
 def topk_accuracy(output, target, topk):
     """Computes the precision@k for the specified values of k"""
     batch_size = target.size(0)
-    output = output.data
-    target = target.data
+    # output = output.data
+    # target = target.data
 
     _, pred = output.topk(topk, 1, True, True)
     pred = pred.t()

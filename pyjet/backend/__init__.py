@@ -19,12 +19,13 @@ def flatten(x):
     return x.view(x.size(0), -1)
 
 def softmax(x):
-    normalized_exp = (x - x.max(1)[0].expand(*x.size())).exp().clamp(epsilon, 1.)
+    normalized_exp = (x - x.max(1)[0].expand(*x.size())).exp() # .clamp(epsilon, 1.)
     return normalized_exp / normalized_exp.sum(1).expand(*x.size())
 
 
 # Set up the use of cuda if available
 use_cuda = torch.cuda.is_available()
+# use_cuda = False
 FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
 LongTensor = cudaLongTensor if use_cuda else torch.LongTensor
 ByteTensor = cudaByteTensor if use_cuda else torch.ByteTensor

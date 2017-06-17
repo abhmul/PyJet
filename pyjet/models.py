@@ -47,11 +47,12 @@ class SLModel(nn.Module):
         loss.backward()
         optimizer.step()
         # Calculate the metrics
-        metric_scores = [metric(torch_preds, torch_target)[0] for metric in metrics]
+        metric_scores = [metric(torch_preds, torch_target).data[0] for metric in metrics]
         return loss.data[0], metric_scores
 
     def validate_on_batch(self, x, target, metrics):
         self.cast_model_to_cuda()
+        self.eval()
         # Cast inputs to a torch variable and set to volatile for inference
         torch_x = self.cast_input_to_torch(x, volatile=True)
         torch_target = self.cast_target_to_torch(target, volatile=True)
@@ -134,6 +135,7 @@ class SLModel(nn.Module):
 
     def predict_on_batch(self, x):
         self.cast_model_to_cuda()
+        self.eval()
         # Cast inputs to a torch variable and set to volatile for inference
         torch_x = self.cast_input_to_torch(x, volatile=True)
         # Make the prediction
@@ -143,6 +145,7 @@ class SLModel(nn.Module):
 
     def predict_generator(self, generator, prediction_steps):
         self.cast_model_to_cuda()
+        self.eval()
         preds = []
         # Loop through all the steps
         for step in range(prediction_steps):
