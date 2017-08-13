@@ -18,6 +18,9 @@ class GeneratorEnqueuer(object):
 
     def __init__(self, generator):
         self._generator = generator
+        # Copy the steps per epoch if it has one
+        if hasattr(self._generator, "steps_per_epoch"):
+            self.steps_per_epoch = self._generator.steps_per_epoch
         self._threads = []
         self._stop_event = None
         self.queue = None
@@ -31,6 +34,7 @@ class GeneratorEnqueuer(object):
             wait_time: time to sleep in-between calls to put()
         """
         self.wait_time = wait_time
+
         def data_generator_task():
             while not self._stop_event.is_set():
                 try:
@@ -80,10 +84,12 @@ class GeneratorEnqueuer(object):
             if not self.queue.empty():
                 return self.queue.get()
             else:
-                # print("waiting...")
+                # print("Waiting...")
                 time.sleep(self.wait_time)
 
 # A simple object for logging
+
+
 class MetricLogs(object):
     def __init__(self, metrics):
         self.logs = {}
@@ -123,6 +129,8 @@ class MetricLogs(object):
         return self.metrics
 
 # A simple class for a progress bar
+
+
 class ProgBar(object):
 
     def __init__(self, verbosity=1):

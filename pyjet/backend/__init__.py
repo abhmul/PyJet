@@ -22,6 +22,13 @@ def softmax(x):
     normalized_exp = (x - x.max(1)[0].expand(*x.size())).exp() # .clamp(epsilon, 1.)
     return normalized_exp / normalized_exp.sum(1).expand(*x.size())
 
+def zero_center(x):
+    return (x - x.mean().expand(*x.size()))
+    
+def standardize(x):
+    std = (x.pow(2).mean() - x.mean().pow(2)).sqrt()
+    return zero_center(x) / std.expand(*x.size()).clamp(min=epsilon)
+
 
 # Set up the use of cuda if available
 use_cuda = torch.cuda.is_available()

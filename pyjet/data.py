@@ -20,6 +20,7 @@ class Dataset(object):
     """
 
     def __init__(self, *args, verbosity=VERBOSITY.NORMAL, **kwargs):
+        self.verbosity = verbosity
         pass
 
     def __len__(self):
@@ -110,8 +111,9 @@ class DatasetGenerator(BatchGenerator):
         if self.steps_per_epoch is None:
             self.steps_per_epoch = int((len(self.dataset) + self.batch_size - 1) / \
                                    self.batch_size)
+        self.batch_argument_generator = self.create_batch_argument_generator()
 
-    def batch_argument_generator(self):
+    def create_batch_argument_generator(self):
         # TODO I hate the structure of this. If I keep this, then it should
         # really be avoided and gens should be constructed from python
         # iterators.
@@ -150,9 +152,10 @@ class DatasetGenerator(BatchGenerator):
         # This is a critical section, so we lock when we need the next indicies
         if self.index_array is not None:
             with self.lock:
-                batch_arguments = next(self.batch_argument_generator())
+                batch_arguments = next(self.batch_argument_generator)
         else:
             batch_arguments = tuple([])
+        # print("Batch Arguments: ", batch_arguments[0])
         return self.dataset.create_batch(*batch_arguments)
 
     def toggle_shuffle(self):
