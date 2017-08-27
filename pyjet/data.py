@@ -3,7 +3,6 @@ import numpy as np
 from collections import namedtuple
 
 # TODO Create a dataset for HDF5 and Torch Tensor
-# BUG MOST OF THIS WILL BE THROWN OUT
 
 VERBOSITY = namedtuple('VERBOSITY', ['QUIET', 'NORMAL', 'VERBOSE', 'DEBUG'])(0, 1, 2, 3)
 
