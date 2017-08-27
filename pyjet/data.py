@@ -63,7 +63,7 @@ class BatchGenerator(object):
         self.batch_size = batch_size
 
     def __iter__(self):
-        raise NotImplementedError()
+        return self
 
     def __next__(self):
         raise NotImplementedError()
@@ -143,9 +143,6 @@ class DatasetGenerator(BatchGenerator):
                 np.random.shuffle(self.index_array)
             for i in range(0, len(self.index_array), self.batch_size):
                 yield (self.index_array[i:i + self.batch_size],)
-
-    def __iter__(self):
-        return self
 
     def __next__(self):
         # This is a critical section, so we lock when we need the next indicies

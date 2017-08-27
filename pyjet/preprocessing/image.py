@@ -5,14 +5,15 @@ new preprocessing methods, etc...
 from __future__ import absolute_import
 from __future__ import print_function
 
+from .. import backend as J
+from .. import data
+
 import numpy as np
 import re
 from scipy import linalg
 import scipy.ndimage as ndi
 import os
 from functools import partial
-
-from .. import backend as J
 
 try:
     from PIL import Image as pil_image
@@ -79,7 +80,7 @@ def apply_transform(x,
     return x
 
 
-class ImageDataGenerator(object):
+class ImageDataGenerator(data.BatchGenerator):
     """Generate minibatches of image data with real-time data augmentation.
     # Arguments
         samplewise_center: set each sample mean to 0.
@@ -114,7 +115,7 @@ class ImageDataGenerator(object):
     """
 
     def __init__(self,
-                 datagen,
+                 generator,
                  labels=True,
                  augment_masks=True,
                  samplewise_center=False,
@@ -133,10 +134,14 @@ class ImageDataGenerator(object):
                  preprocessing_function=None,
                  seed=None,
                  data_format='channels_last'):
-        self.datagen = datagen
-        # Copy the steps per epoch if it has one
-        if hasattr(self.datagen, "steps_per_epoch"):
-            self.steps_per_epoch = self.datagen.steps_per_epoch
+        # Copy the steps per epoch and batch size if it has one
+        if hasattr(generator, "steps_per_epoch") and hasattr(generator, "batch_size"):
+            super(GeneratorEnqueuer, self).__init__(
+                steps_per_epoch=generator.steps_per_epoch, batch_size=generator.batch_size)
+        else:
+            logging.warning("Input generator does not have a steps_per_epoch or batch_size "
+                            "attribute. Continuing without them.")
+        self._generator = generator
         self.labels = labels
         self.augment_masks = augment_masks
         self.samplewise_center = samplewise_center
@@ -185,10 +190,10 @@ class ImageDataGenerator(object):
 
     def __next__(self):
         if self.labels:
-            x, y = next(self.datagen)
+            x, y = next(self._generator)
             assert(x.shape[0] == y.shape[0])
         else:
-            x = next(self.datagen)
+            x = next(self._generator)
         # Create the seeds
         seeds = np.random.randint(10000, size=x.shape[0])
         # Augment the masks if we have them and are supposed to
@@ -204,9 +209,6 @@ class ImageDataGenerator(object):
         if self.labels:
             return x, y
         return x
-
-    def __iter__(self):
-        return self
 
     def standardize(self, x):
         """Apply the normalization configuration to a batch of inputs.

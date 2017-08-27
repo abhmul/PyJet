@@ -1,15 +1,17 @@
+from . import backend as J
+from . import data
+
+import logging
 import time
 import queue
 import threading
+from collections import defaultdict
 import numpy as np
 from tqdm import trange
-import torch
-from . import backend as J
-from collections import defaultdict
 from torch.autograd import Variable
 
 
-class GeneratorEnqueuer(object):
+class GeneratorEnqueuer(data.BatchGenerator):
     """Builds a queue out of a data generator.
     Used in `fit_generator`, `evaluate_generator`, `predict_generator`.
     # Arguments
@@ -17,10 +19,14 @@ class GeneratorEnqueuer(object):
     """
 
     def __init__(self, generator):
+        # Copy the steps per epoch and batch size if it has one
+        if hasattr(generator, "steps_per_epoch") and hasattr(generator, "batch_size"):
+            super(GeneratorEnqueuer, self).__init__(
+                steps_per_epoch=generator.steps_per_epoch, batch_size=generator.batch_size)
+        else:
+            logging.warning("Input generator does not have a steps_per_epoch or batch_size "
+                            "attribute. Continuing without them.")
         self._generator = generator
-        # Copy the steps per epoch if it has one
-        if hasattr(self._generator, "steps_per_epoch"):
-            self.steps_per_epoch = self._generator.steps_per_epoch
         self._threads = []
         self._stop_event = None
         self.queue = None
