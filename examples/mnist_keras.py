@@ -1,5 +1,6 @@
 import _pickle as cPickle
-import gzip, numpy
+import gzip
+import numpy
 import wget
 
 import numpy as np
@@ -8,10 +9,10 @@ import matplotlib.pyplot as plt
 from keras.layers import Conv2D, Dense, Dropout, Input, Activation, MaxPooling2D, Flatten
 from keras.optimizers import SGD
 from keras.models import Model
+from keras.utils import to_categorical
 
 
 from pyjet.data import NpDataset, DatasetGenerator
-from pyjet.utils import to_categorical
 
 # Load the dataset
 try:
@@ -26,8 +27,8 @@ f.close()
 
 ytr = to_categorical(ytr)
 yval = to_categorical(yval)
-xtr = xtr.reshape((-1, 1,  28, 28)) # Should be (Channel Height, Width)
-xval = xval.reshape((-1, 1,  28, 28)) # Should be (Channel Height, Width)
+xtr = xtr.reshape((-1, 1,  28, 28))  # Should be (Channel Height, Width)
+xval = xval.reshape((-1, 1,  28, 28))  # Should be (Channel Height, Width)
 
 # Change the dimensions for keras/tensorflow
 xtr = xtr.transpose(0, 2, 3, 1)
@@ -45,6 +46,8 @@ plt.title("Digit = %s" % np.where(ytr[ind] == 1)[0][0])
 plt.show()
 
 # Create the model
+
+
 def mnist_model():
     input_img = Input(shape=(28, 28, 1))
     x = Conv2D(10, (5, 5), padding='valid')(input_img)
@@ -65,6 +68,7 @@ def mnist_model():
     model.compile(SGD(lr=0.01, momentum=0.9, nesterov=False), loss='categorical_crossentropy',
                   metrics=['accuracy'])
     return model
+
 
 model = mnist_model()
 

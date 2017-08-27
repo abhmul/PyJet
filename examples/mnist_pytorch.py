@@ -8,12 +8,13 @@ from torchvision import datasets, transforms
 from torch.autograd import Variable
 
 import _pickle as cPickle
-import gzip, numpy
+import gzip
+import numpy
 import wget
 import numpy as np
 import matplotlib.pyplot as plt
-from pyjet.utils import to_categorical
 from pyjet.data import NpDataset, DatasetGenerator
+import pyjet.backend as J
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -52,8 +53,8 @@ except:
 # Need to convert to keras format
 f.close()
 
-xtr = xtr.reshape((-1, 1,  28, 28)) # Should be (Channel Height, Width)
-xval = xval.reshape((-1, 1,  28, 28)) # Should be (Channel Height, Width)
+xtr = xtr.reshape((-1, 1,  28, 28))  # Should be (Channel Height, Width)
+xval = xval.reshape((-1, 1,  28, 28))  # Should be (Channel Height, Width)
 
 print(np.max(xtr))
 print("Training Data Shape: ", xtr.shape)
@@ -84,7 +85,8 @@ class Net(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
-        return J.softmax(x)
+        return F.log_softmax(x)
+
 
 model = Net()
 if args.cuda:
@@ -97,11 +99,13 @@ train_datagen = DatasetGenerator(NpDataset(xtr, y=ytr), batch_size=32, shuffle=T
 # Turn the val data into a BatchGenerator
 val_datagen = DatasetGenerator(NpDataset(xval, y=yval), batch_size=1000, shuffle=True, seed=1234)
 
+
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_datagen):
+        data, target = torch.Tensor(data), torch.LongTensor(target)
         if args.cuda:
-            data, target = torch.Tensor(data).cuda(), torch.LongTensor(target).cuda()
+            data, target = data.cuda(), target.cuda()
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
@@ -115,23 +119,25 @@ def train(epoch):
         if train_datagen.steps_per_epoch == batch_idx + 1:
             break
 
+
 def test(epoch):
     model.eval()
     test_loss = 0
     correct = 0
     for batch_idx, (data, target) in enumerate(val_datagen):
+        data, target = torch.Tensor(data), torch.LongTensor(target)
         if args.cuda:
-            data, target = torch.Tensor(data).cuda(), torch.LongTensor(target).cuda()
+            data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
         test_loss += F.nll_loss(output, target).data[0]
-        pred = output.data.max(1)[1] # get the index of the max log-probability
+        pred = output.data.max(1)[1]  # get the index of the max log-probability
         correct += pred.eq(target.data).cpu().sum()
         if val_datagen.steps_per_epoch == batch_idx + 1:
             break
 
     test_loss = test_loss
-    test_loss /= val_datagen.steps_per_epoch # loss function already averages over batch size
+    test_loss /= val_datagen.steps_per_epoch  # loss function already averages over batch size
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(xval),
         100. * correct / len(xval)))

@@ -1,5 +1,6 @@
 import _pickle as cPickle
-import gzip, numpy
+import gzip
+import numpy
 import wget
 
 import numpy as np
@@ -27,9 +28,9 @@ except:
 # Need to convert to keras format
 f.close()
 
-xtr = xtr.reshape((-1, 1,  28, 28)) # Should be (Channel Height, Width)
-xval = xval.reshape((-1, 1,  28, 28)) # Should be (Channel Height, Width)
-xte = xte.reshape((-1, 1,  28, 28)) # Should be (Channel Height, Width)
+xtr = xtr.reshape((-1, 1,  28, 28))  # Should be (Channel Height, Width)
+xval = xval.reshape((-1, 1,  28, 28))  # Should be (Channel Height, Width)
+xte = xte.reshape((-1, 1,  28, 28))  # Should be (Channel Height, Width)
 
 print(np.max(xtr))
 print("Training Data Shape: ", xtr.shape)
@@ -44,6 +45,8 @@ plt.title("Digit = %s" % ytr[ind])
 plt.show()
 
 # Create the model
+
+
 class MNISTModel(SLModel):
     def __init__(self):
         super(MNISTModel, self).__init__()
@@ -64,6 +67,7 @@ class MNISTModel(SLModel):
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return J.softmax(x)
+
 
 model = MNISTModel()
 # model.cuda()
@@ -103,6 +107,6 @@ test_preds = model.predict_generator(test_datagen, test_datagen.steps_per_epoch)
 while True:
     ind = np.random.randint(xte.shape[0])
     plt.imshow(xte[ind, 0, :, :], cmap='gray')
-    test_pred = model.predict_on_batch(xte[ind:ind+1, :, :, :])[0]
+    test_pred = model.predict_on_batch(xte[ind:ind + 1, :, :, :])[0]
     plt.title("Prediction = %s" % np.argmax(test_pred))
     plt.show()
