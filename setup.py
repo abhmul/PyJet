@@ -22,9 +22,8 @@ setup(name='PyJet',
                     # 'pytest-xdist',
                     'pytest-cov',
                     'python-coveralls'],
-                    ]
       },
-      classifiers = [
+      classifiers=[
           'Development Status :: 2 - Pre-Alpha',
           'Intended Audience :: Developers',
           'Intended Audience :: Education',
@@ -35,4 +34,4 @@ setup(name='PyJet',
           'Topic :: Software Development :: Libraries',
           'Topic :: Software Development :: Libraries :: Python Modules'
       ],
-      packages = find_packages())
+      packages=find_packages())
