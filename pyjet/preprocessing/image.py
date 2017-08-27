@@ -184,18 +184,22 @@ class ImageDataGenerator(object):
             np.random.seed(seed)
 
     def __next__(self):
-        seed = np.random.randint(10000)
         if self.labels:
             x, y = next(self.datagen)
-            if self.augment_masks:
-                for i in range(y.shape[0]):
-                    y[i] = self.standardize(self.random_transform(
-                        y[i], seed=seed))
+            assert(x.shape[0] == y.shape[0])
         else:
             x = next(self.datagen)
+        # Create the seeds
+        seeds = np.random.randint(10000, size=x.shape[0])
+        # Augment the masks if we have them and are supposed to
+        if self.labels and self.augment_masks:
+            for i in range(y.shape[0]):
+                y[i] = self.standardize(self.random_transform(
+                    y[i], seed=seeds[i]))
+
         # transform the image memory efficiently
         for i in range(x.shape[0]):
-            x[i] = self.standardize(self.random_transform(x[i], seed=seed))
+            x[i] = self.standardize(self.random_transform(x[i], seed=seeds[i]))
 
         if self.labels:
             return x, y
