@@ -4,7 +4,7 @@ python:
 # command to install dependencies
 install:
   # Install PyTorch
-  - pip install http://download.pytorch.org/whl/cu80/torch-0.2.0.post1-cp35-cp35m-manylinux1_x86_64.whl
+  - pip install -q http://download.pytorch.org/whl/cu80/torch-0.2.0.post1-cp35-cp35m-manylinux1_x86_64.whl
   # Install all the other dependencies
   - pip install -r requirements.txt
 # command to run tests
