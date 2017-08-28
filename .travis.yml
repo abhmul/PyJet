@@ -8,7 +8,8 @@ install:
   # Install all the other dependencies
   - pip install -e .[tests]
 # command to run tests
-script: py.test  --cov-report= --cov=pyjet tests/
+script: py.test  --cov-report=term-missing --cov=pyjet tests/
 # Run the coverage
 aftersuccess:
+  - codecov
   - coveralls
