@@ -136,7 +136,7 @@ class ImageDataGenerator(data.BatchGenerator):
                  data_format='channels_last'):
         # Copy the steps per epoch and batch size if it has one
         if hasattr(generator, "steps_per_epoch") and hasattr(generator, "batch_size"):
-            super(GeneratorEnqueuer, self).__init__(
+            super(ImageDataGenerator, self).__init__(
                 steps_per_epoch=generator.steps_per_epoch, batch_size=generator.batch_size)
         else:
             logging.warning("Input generator does not have a steps_per_epoch or batch_size "
