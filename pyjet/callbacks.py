@@ -1,5 +1,8 @@
-import matplotlib.pyplot as plt
 import numpy as np
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
 
 class Callback(object):
     """Abstract base class used to build new callbacks.
@@ -148,6 +151,8 @@ class Plotter(Callback):
 
     def __init__(self, scale='linear', monitor='accuracy', plot_during_train=True, save_to_file=None):
         super().__init__()
+        if plt is None:
+            raise ValueError("Must be able to import Matplotlib to use the Plotter.")
         self.scale = scale
         self.monitor = monitor
         self.plot_during_train = plot_during_train
