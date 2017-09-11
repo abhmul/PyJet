@@ -4,6 +4,7 @@ try:
 except ImportError:
     plt = None
 
+
 class Callback(object):
     """Abstract base class used to build new callbacks.
     # Properties
@@ -84,7 +85,7 @@ class ModelCheckpoint(Callback):
         period: Interval (number of epochs) between checkpoints.
     """
 
-    def __init__(self, filepath, monitor='categorical_crossentropy', monitor_val=True, verbose=0,
+    def __init__(self, filepath, monitor, monitor_val=True, verbose=0,
                  save_best_only=False,
                  mode='auto', period=1):
         super(ModelCheckpoint, self).__init__()
@@ -124,7 +125,7 @@ class ModelCheckpoint(Callback):
             self.epochs_since_last_save = 0
             filepath = self.filepath.format(epoch=epoch)
             if self.save_best_only:
-                current = logs.get(self.monitor)[-1]
+                current = logs[self.monitor][-1]
                 if current is None:
                     warnings.warn('Can save best model only with %s available, '
                                   'skipping.' % (self.monitor), RuntimeWarning)
@@ -149,7 +150,7 @@ class ModelCheckpoint(Callback):
 
 class Plotter(Callback):
 
-    def __init__(self, scale='linear', monitor='accuracy', plot_during_train=True, save_to_file=None):
+    def __init__(self, monitor, scale='linear', plot_during_train=True, save_to_file=None):
         super().__init__()
         if plt is None:
             raise ValueError("Must be able to import Matplotlib to use the Plotter.")
@@ -172,13 +173,11 @@ class Plotter(Callback):
         return
 
     def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        # self.line1.set_ydata(logs.get('loss'))
-        # self.line2.set_ydata(logs.get('val_loss'))
         train_logs = train_logs or {}
         val_logs = val_logs or {}
         self.x.append(len(self.x))
-        self.y_train.append(train_logs.get(self.monitor)[-1])
-        self.y_val.append(val_logs.get(self.monitor)[-1])
+        self.y_train.append(train_logs[self.monitor][-1])
+        self.y_val.append(val_logs[self.monitor][-1])
         self.ax.clear()
         self.ax.set_yscale(self.scale)
         self.ax.plot(self.x, self.y_train, 'b-', self.x, self.y_val, 'g-')

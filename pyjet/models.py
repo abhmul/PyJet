@@ -14,6 +14,7 @@ class SLModel(nn.Module):
     def __init__(self):
         super(SLModel, self).__init__()
         self.to_cuda = J.use_cuda
+        self.loss_in = None
 
     def forward(*inputs, **kwargs):
         raise NotImplementedError
@@ -33,8 +34,15 @@ class SLModel(nn.Module):
             self.to_cuda = False
         return
 
+    def compile_loss(self, loss_fn):
+        def loss(preds, targets):
+            # Preds are not used, just works as metric
+            return loss_fn(self.loss_in, targets)
+        return loss
+
     def train_on_batch(self, x, target, optimizer, loss_fn, metrics=()):
         self.cast_model_to_cuda()
+        self.train()
         # Cast inputs to a torch variable
         torch_x = self.cast_input_to_torch(x)
         torch_target = self.cast_target_to_torch(target)
@@ -71,14 +79,13 @@ class SLModel(nn.Module):
             x, target = next(validate_generator)
             b_metrics = self.validate_on_batch(x, target, metrics)
             batch_logs.update_logs(metrics, b_metrics)
-        # Put the model back in train model
-        self.train()
         return [batch_logs.average(metric) for metric in metrics]
 
-    def fit_generator(self, generator, epochs, steps_per_epoch, optimizer,
+    def fit_generator(self, generator, steps_per_epoch, epochs, optimizer,
                       loss_fn, validation_generator=None, validation_steps=0,
                       metrics=(), callbacks=(), initial_epoch=0):
         self.cast_model_to_cuda()
+        loss_fn = self.compile_loss(loss_fn)
         # Register the model with each callback
         [callback.set_model(self) for callback in callbacks]
         # Save whether we will need to run validation
@@ -87,25 +94,29 @@ class SLModel(nn.Module):
         train_logs = MetricLogs([loss_fn] + metrics)
         val_logs = MetricLogs([loss_fn] + metrics)
         # Run the callbacks
-        [callback.on_train_begin(train_logs=train_logs, val_logs=val_logs) for callback in callbacks]
+        [callback.on_train_begin(train_logs=train_logs, val_logs=val_logs)
+         for callback in callbacks]
         # Loop through all the epochs
         for epoch in range(initial_epoch, epochs):
-            print("Epoch {curr}/{total}".format(curr=epoch+1, total=epochs))
+            # Put the model in train mode
+            self.train()
+            print("Epoch {curr}/{total}".format(curr=epoch + 1, total=epochs))
             # Setup the progress bar
             progbar = ProgBar()
             # Setup the batch logs
             batch_logs = MetricLogs([loss_fn] + metrics)
             # Run the callbacks
-            [callback.on_epoch_begin(epoch, train_logs=train_logs, val_logs=val_logs) for callback in callbacks]
+            [callback.on_epoch_begin(epoch, train_logs=train_logs, val_logs=val_logs)
+             for callback in callbacks]
             # Run each step of the epoch with a progress bar
             for step in progbar(steps_per_epoch):
                 # Run the callbacks
                 [callback.on_batch_begin(step, train_logs=batch_logs) for callback in callbacks]
                 x, target = next(generator)
                 # if len(generator_output) == 2:
-                    # x, target = generator_output
+                # x, target = generator_output
                 # else:
-                    # raise ValueError("Generator output had a length of %s" % len(generator_output))
+                # raise ValueError("Generator output had a length of %s" % len(generator_output))
                 b_loss, b_metrics = self.train_on_batch(x, target, optimizer, loss_fn, metrics)
                 # Add stats to the batch_logs
                 batch_logs.update_logs([loss_fn] + metrics, [b_loss] + b_metrics)
@@ -121,16 +132,20 @@ class SLModel(nn.Module):
 
             # Check if we need to run validation
             if run_validation:
-                val_metrics = self.validate_generator(validation_generator, validation_steps, [loss_fn] + metrics)
+                val_metrics = self.validate_generator(
+                    validation_generator, validation_steps, [loss_fn] + metrics)
                 print("\tValidation Loss: ", val_metrics[0])
                 for m_ind, metric in enumerate(metrics):
                     print("\tValidation %s: " % metric.__name__, val_metrics[m_ind + 1])
                 # Log the loss and metrics
                 val_logs.update_logs([loss_fn] + metrics, val_metrics)
             # Run the callbacks
-            [callback.on_epoch_end(epoch, train_logs=train_logs, val_logs=val_logs) for callback in callbacks]
+            [callback.on_epoch_end(epoch, train_logs=train_logs, val_logs=val_logs)
+             for callback in callbacks]
         # Run the callbacks
         [callback.on_train_end(train_logs=train_logs, val_logs=val_logs) for callback in callbacks]
+        # Put the model back in eval mode
+        self.eval()
         return train_logs, val_logs
 
     def predict_on_batch(self, x):

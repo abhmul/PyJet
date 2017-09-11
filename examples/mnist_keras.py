@@ -2,6 +2,7 @@ import _pickle as cPickle
 import gzip
 import numpy
 import wget
+import tensorflow as tf
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,6 +14,10 @@ from keras.utils import to_categorical
 
 
 from pyjet.data import NpDataset, DatasetGenerator
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.Session(config=config)
 
 # Load the dataset
 try:

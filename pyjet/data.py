@@ -211,7 +211,19 @@ class NpDataset(Dataset):
         outputs = [self.x[batch_indicies], ]
         if self.output_labels:
             outputs.append(self.y[batch_indicies])
-        return outputs[0] if len(outputs) == 1 else tuple(outputs)
+        return outputs[0] if len(outputs) == 1 else outputs[0], outputs[1]
+
+    def get_split_indicies(self, split, shuffle, seed):
+        split_ind = int(split * len(self))
+        val_split = slice(split_ind)
+        train_split = slice(split_ind, None)
+        if shuffle:
+            if seed is not None:
+                np.random.seed(seed)
+            indicies = np.random.permutation(len(self))
+            train_split = indicies[train_split]
+            val_split = indicies[val_split]
+        return train_split, val_split
 
     def validation_split(self, split=0.2, shuffle=False, seed=None):
         """
@@ -236,15 +248,7 @@ class NpDataset(Dataset):
             destroy_self flag to True if you can afford the split, but want to
             reclaim the memory from the parent dataset.
         """
-        split_ind = int(split * len(self))
-        val_split = slice(split_ind)
-        train_split = slice(split_ind, None)
-        if shuffle:
-            if seed is not None:
-                np.random.seed(seed)
-            indicies = np.random.permutation(len(self))
-            train_split = indicies[train_split]
-            val_split = indicies[val_split]
+        train_split, val_split = self.get_split_indicies(split, shuffle)
         train_data = NpDataset(self.x[train_split],
                                None if self.y is None else self.y[train_split])
         val_data = NpDataset(self.x[val_split],
