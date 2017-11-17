@@ -19,6 +19,10 @@ def cudaByteTensor(x):
     return torch.ByteTensor(x).cuda()
 
 
+def cudaZeros(*args):
+    return torch.zeros(*args).cuda()
+
+
 def flatten(x):
     """Flattens along axis 0 (# rows in == # rows out)"""
     return x.view(x.size(0), -1)
@@ -26,12 +30,13 @@ def flatten(x):
 
 def softmax(x):
     # BUG some shape error
-    normalized_exp = (x - x.max(1)[0].expand(*x.size())).exp()  # .clamp(epsilon, 1.)
+    # .clamp(epsilon, 1.)
+    normalized_exp = (x - x.max(1)[0].expand(*x.size())).exp()
     return normalized_exp / normalized_exp.sum(1).expand(*x.size())
 
 
 def zero_center(x):
-    return (x - x.mean().expand(*x.size()))
+    return x - x.mean()
 
 
 def standardize(x):
@@ -46,5 +51,6 @@ FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
 LongTensor = cudaLongTensor if use_cuda else torch.LongTensor
 ByteTensor = cudaByteTensor if use_cuda else torch.ByteTensor
 Tensor = FloatTensor
+zeros = cudaZeros if use_cuda or torch.zeros
 
 print("PyJet is using " + ("CUDA" if use_cuda else "CPU") + ".")

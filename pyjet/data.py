@@ -4,7 +4,8 @@ from collections import namedtuple
 
 # TODO Create a dataset for HDF5 and Torch Tensor
 
-VERBOSITY = namedtuple('VERBOSITY', ['QUIET', 'NORMAL', 'VERBOSE', 'DEBUG'])(0, 1, 2, 3)
+VERBOSITY = namedtuple(
+    'VERBOSITY', ['QUIET', 'NORMAL', 'VERBOSE', 'DEBUG'])(0, 1, 2, 3)
 
 
 class Dataset(object):
@@ -248,7 +249,7 @@ class NpDataset(Dataset):
             destroy_self flag to True if you can afford the split, but want to
             reclaim the memory from the parent dataset.
         """
-        train_split, val_split = self.get_split_indicies(split, shuffle)
+        train_split, val_split = self.get_split_indicies(split, shuffle, seed)
         train_data = NpDataset(self.x[train_split],
                                None if self.y is None else self.y[train_split])
         val_data = NpDataset(self.x[val_split],

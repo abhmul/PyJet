@@ -229,7 +229,8 @@ class ImageDataGenerator(data.BatchGenerator):
             remove_channel_axis = True
             x = np.expand_dims(x, axis=img_channel_axis)
         elif x.ndim != 3:
-            raise ValueError("Dim of input image must be 2 or 3, given ", x.ndim)
+            raise ValueError(
+                "Dim of input image must be 2 or 3, given ", x.ndim)
         if self.samplewise_center:
             x -= np.mean(x, axis=img_channel_axis, keepdims=True)
         if self.samplewise_std_normalization:
@@ -259,7 +260,8 @@ class ImageDataGenerator(data.BatchGenerator):
             remove_channel_axis = True
             x = np.expand_dims(x, axis=img_channel_axis)
         elif x.ndim != 3:
-            raise ValueError("Dim of input image must be 2 or 3, given ", x.ndim)
+            raise ValueError(
+                "Dim of input image must be 2 or 3, given ", x.ndim)
 
         if seed is not None:
             np.random.seed(seed)
@@ -267,7 +269,8 @@ class ImageDataGenerator(data.BatchGenerator):
         # use composition of homographies
         # to generate final transform that needs to be applied
         if self.rotation_range:
-            theta = np.pi / 180 * np.random.uniform(-self.rotation_range, self.rotation_range)
+            theta = np.pi / 180 * \
+                np.random.uniform(-self.rotation_range, self.rotation_range)
         else:
             theta = 0
 
@@ -291,7 +294,8 @@ class ImageDataGenerator(data.BatchGenerator):
         if self.zoom_range[0] == 1 and self.zoom_range[1] == 1:
             zx, zy = 1, 1
         else:
-            zx, zy = np.random.uniform(self.zoom_range[0], self.zoom_range[1], 2)
+            zx, zy = np.random.uniform(
+                self.zoom_range[0], self.zoom_range[1], 2)
 
         transform_matrix = None
         if theta != 0:
@@ -323,7 +327,8 @@ class ImageDataGenerator(data.BatchGenerator):
 
         if transform_matrix is not None:
             h, w = x.shape[img_row_axis], x.shape[img_col_axis]
-            transform_matrix = transform_matrix_offset_center(transform_matrix, h, w)
+            transform_matrix = transform_matrix_offset_center(
+                transform_matrix, h, w)
             x = apply_transform(x, transform_matrix, img_channel_axis,
                                 fill_mode=self.fill_mode, cval=self.cval)
 

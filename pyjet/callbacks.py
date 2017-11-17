@@ -160,12 +160,15 @@ class Plotter(Callback):
         self.save_to_file = save_to_file
         plt.ion()
         self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111)
+        self.title = "{} per Epoch".format(self.monitor)
+        self.xlabel = "Epoch"
+        self.ylabel = self.monitor
+        self.ax = self.fig.add_subplot(111, title=self.title,
+                                       xlabel=self.xlabel, ylabel=self.ylabel)
         self.ax.set_yscale(self.scale)
         self.x = []
         self.y_train = []
         self.y_val = []
-        # self.ax.plot(self.x, self.y_train, 'b-', self.x, self.y_val, 'g-')
 
     def on_train_end(self, train_logs=None, val_logs=None):
         plt.ioff()
@@ -179,7 +182,11 @@ class Plotter(Callback):
         self.y_train.append(train_logs[self.monitor][-1])
         self.y_val.append(val_logs[self.monitor][-1])
         self.ax.clear()
+        # # Set up the plot
+        self.fig.suptitle(self.title)
+
         self.ax.set_yscale(self.scale)
+        # Actually plot
         self.ax.plot(self.x, self.y_train, 'b-', self.x, self.y_val, 'g-')
         self.fig.canvas.draw()
         # plt.pause(0.5)
