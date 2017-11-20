@@ -51,6 +51,6 @@ FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
 LongTensor = cudaLongTensor if use_cuda else torch.LongTensor
 ByteTensor = cudaByteTensor if use_cuda else torch.ByteTensor
 Tensor = FloatTensor
-zeros = cudaZeros if use_cuda or torch.zeros
+zeros = cudaZeros if use_cuda else torch.zeros
 
 print("PyJet is using " + ("CUDA" if use_cuda else "CPU") + ".")
