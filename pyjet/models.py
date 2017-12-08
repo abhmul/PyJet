@@ -17,7 +17,7 @@ class SLModel(nn.Module):
         self.loss_in = None
         self.aux_loss = []
 
-    def forward(*inputs, **kwargs):
+    def forward(self, *inputs, **kwargs):
         raise NotImplementedError
 
     def cast_input_to_torch(self, x, volatile=False):

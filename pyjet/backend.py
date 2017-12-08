@@ -22,6 +22,9 @@ def cudaByteTensor(x):
 def cudaZeros(*args):
     return torch.zeros(*args).cuda()
 
+def cudaOnes(*args):
+    return torch.ones(*args).cuda()
+
 
 def flatten(x):
     """Flattens along axis 0 (# rows in == # rows out)"""
@@ -51,6 +54,8 @@ FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
 LongTensor = cudaLongTensor if use_cuda else torch.LongTensor
 ByteTensor = cudaByteTensor if use_cuda else torch.ByteTensor
 Tensor = FloatTensor
+# Tensor fillers
 zeros = cudaZeros if use_cuda else torch.zeros
+ones = cudaOnes if use_cuda else torch.ones
 
 print("PyJet is using " + ("CUDA" if use_cuda else "CPU") + ".")
