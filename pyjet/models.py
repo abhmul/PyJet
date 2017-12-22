@@ -37,7 +37,7 @@ class SLModel(nn.Module):
 
     def compile_loss(self, loss_fn):
         def loss(preds, targets):
-            # Preds are not used, just works as metric
+            # Preds are not used, just works as metric)
             return loss_fn(self.loss_in, targets)
         return loss
 
@@ -76,6 +76,7 @@ class SLModel(nn.Module):
 
     def validate_generator(self, val_generator, validation_steps, loss_fn=None, metrics=()):
         self.cast_model_to_cuda()
+        metrics = list(metrics)
         if loss_fn is not None:
             loss_fn = self.compile_loss(loss_fn)
             metrics = [loss_fn, ] + metrics
@@ -93,6 +94,7 @@ class SLModel(nn.Module):
                       loss_fn, validation_generator=None, validation_steps=0,
                       metrics=(), callbacks=(), initial_epoch=0):
         self.cast_model_to_cuda()
+        metrics = list(metrics)
         loss_fn = self.compile_loss(loss_fn)
         # Register the model with each callback
         [callback.set_model(self) for callback in callbacks]
