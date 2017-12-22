@@ -150,7 +150,7 @@ class ModelCheckpoint(Callback):
 
 class Plotter(Callback):
 
-    def __init__(self, monitor, scale='linear', plot_during_train=True, save_to_file=None):
+    def __init__(self, monitor, scale='linear', plot_during_train=True, save_to_file=None, block_on_end=True):
         super().__init__()
         if plt is None:
             raise ValueError("Must be able to import Matplotlib to use the Plotter.")
@@ -158,6 +158,7 @@ class Plotter(Callback):
         self.monitor = monitor
         self.plot_during_train = plot_during_train
         self.save_to_file = save_to_file
+        self.block_on_end = block_on_end
         plt.ion()
         self.fig = plt.figure()
         self.title = "{} per Epoch".format(self.monitor)
@@ -172,7 +173,8 @@ class Plotter(Callback):
 
     def on_train_end(self, train_logs=None, val_logs=None):
         plt.ioff()
-        plt.show()
+        if self.block_on_end:
+            plt.show()
         return
 
     def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
@@ -190,4 +192,6 @@ class Plotter(Callback):
         self.ax.plot(self.x, self.y_train, 'b-', self.x, self.y_val, 'g-')
         self.fig.canvas.draw()
         # plt.pause(0.5)
+        if self.save_to_file is not None:
+            self.fig.savefig(self.save_to_file)
         return

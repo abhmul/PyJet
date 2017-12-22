@@ -128,3 +128,8 @@ def test_dataset_generator_basic():
         x_batch, y_batch = next(gen)
         assert np.all(x_batch == x[batch_arguments[i * batch_size:(i + 1) * batch_size]])
         assert np.all(y_batch == y[batch_arguments[i * batch_size:(i + 1) * batch_size]])
+
+    for i in range(gen.steps_per_epoch):
+        x_batch, y_batch = next(gen)
+        assert np.all(x_batch != x[batch_arguments[i * batch_size:(i + 1) * batch_size]])
+        assert np.all(y_batch != y[batch_arguments[i * batch_size:(i + 1) * batch_size]])
