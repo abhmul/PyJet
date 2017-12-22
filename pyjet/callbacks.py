@@ -195,3 +195,25 @@ class Plotter(Callback):
         if self.save_to_file is not None:
             self.fig.savefig(self.save_to_file)
         return
+
+class MetricLogger(Callback):
+
+    def __init__(self, log_fname):
+        super().__init__()
+        self.log_fname = log_fname
+
+    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
+        train_logs = train_logs or {}
+        val_logs = val_logs or {}
+        # Write the info to the log
+        with open(self.log_fname, 'a') as log_file:
+            print("Epoch: %s" % epoch, file=log_file)
+            if len(train_logs) > 0:
+                print("Train", file=log_file)
+            for metric, values in train_logs.items():
+                print("\t{}: {}".format(metric, values[-1]), file=log_file)
+            if len(val_logs) > 0:
+                print("Val", file=log_file)
+            for metric, values in val_logs.items():
+                print("\t{}: {}".format(metric, values[-1]), file=log_file)
+            print("", file=log_file)
