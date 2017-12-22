@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 try:
     import matplotlib.pyplot as plt
 except ImportError:
@@ -128,7 +129,7 @@ class ModelCheckpoint(Callback):
                 current = logs[self.monitor][-1]
                 if current is None:
                     warnings.warn('Can save best model only with %s available, '
-                                  'skipping.' % (self.monitor), RuntimeWarning)
+                                  'skipping.' % self.monitor, RuntimeWarning)
                 else:
                     if self.monitor_op(current, self.best):
                         if self.verbose > 0:

@@ -102,6 +102,18 @@ class MetricLogs(object):
         self._init_keys([metric.__name__ for metric in metrics])
         self.metrics = metrics
 
+    def __len__(self):
+        return len(self.logs)
+
+    def items(self):
+        return self.logs.items()
+
+    def values(self):
+        return self.logs.values()
+
+    def __iter__(self):
+        return iter(self.logs)
+
     def _init_keys(self, metric_names):
         for metric_name in metric_names:
             self.logs[metric_name] = []
@@ -131,6 +143,7 @@ class MetricLogs(object):
     def get(self, key):
         return self.logs.get(key)
 
+    # TODO figure out where this is ueds since its technically wrong
     def keys(self):
         return self.metrics
 
