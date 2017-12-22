@@ -178,12 +178,13 @@ class SLModel(nn.Module):
         # cast to numpy and return
         return self.cast_output_to_numpy(torch_preds)
 
-    def predict_generator(self, generator, prediction_steps):
+    def predict_generator(self, generator, prediction_steps, verbose=0):
         self.cast_model_to_cuda()
         self.eval()
         preds = []
         # Loop through all the steps
-        for step in range(prediction_steps):
+        progbar = ProgBar(verbosity=verbose)
+        for step in progbar(prediction_steps):
             x = next(generator)
             preds.append(self.predict_on_batch(x))
         return np.concatenate(preds, axis=0)

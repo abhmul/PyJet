@@ -165,5 +165,7 @@ class ProgBar(object):
         self.tqdm.set_postfix(self.postfix)
 
     def __call__(self, high):
-        self.tqdm = self.tqdm(high)
-        return self.tqdm
+        if self.verbosity > 0:
+            self.tqdm = self.tqdm(high)
+            return self.tqdm
+        return range(high)
