@@ -6,6 +6,8 @@ epsilon = 1e-11
 
 # Optimization for casting things to cuda tensors
 
+# Set up the use of cuda if available
+use_cuda = torch.cuda.is_available()
 
 def cudaFloatTensor(x):
     return torch.FloatTensor(x).cuda()
@@ -47,8 +49,10 @@ def standardize(x):
     return zero_center(x) / std.expand(*x.size()).clamp(min=epsilon)
 
 
-# Set up the use of cuda if available
-use_cuda = torch.cuda.is_available()
+def from_numpy(x):
+    torch.from_numpy(x).cuda() if use_cuda else torch.from_numpy(x)
+
+
 # use_cuda = False
 FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
 LongTensor = cudaLongTensor if use_cuda else torch.LongTensor
