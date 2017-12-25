@@ -50,7 +50,7 @@ def standardize(x):
 
 
 def from_numpy(x):
-    torch.from_numpy(x).cuda() if use_cuda else torch.from_numpy(x)
+    return torch.from_numpy(x).cuda() if use_cuda else torch.from_numpy(x)
 
 
 # use_cuda = False
