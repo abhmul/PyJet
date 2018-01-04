@@ -13,7 +13,7 @@ class Conv(nn.Module):
     layer_constructors = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}
 
     def __init__(self, dimensions, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
-                 bias=True, activation='linear', num_layers=1,
+                 use_bias=True, activation='linear', num_layers=1,
                  batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
         super(Conv, self).__init__()
@@ -33,6 +33,7 @@ class Conv(nn.Module):
         self.stride = stride
         self.dilation = dilation
         self.groups = groups
+        self.use_bias = use_bias
         self.activation_name = activation
         self.num_layers = num_layers
         self.batchnorm = batchnorm
@@ -41,7 +42,7 @@ class Conv(nn.Module):
         self.conv_layers = utils.construct_n_layers(Conv.layer_constructors[dimensions], num_layers, input_size,
                                                     output_size, kernel_size,
                                                     stride=stride, padding=padding, dilation=dilation,
-                                                    groups=groups, bias=bias)
+                                                    groups=groups, bias=use_bias)
         # Add the extra stuff
         self.activation = utils.get_activation_type(activation)
         if batchnorm:
@@ -91,36 +92,36 @@ class Conv(nn.Module):
 
 
 class Conv1D(Conv):
-    def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1, bias=True,
-                 activation='linear', num_layers=1,
+    def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
+                 use_bias=True, activation='linear', num_layers=1,
                  batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
-        super(Conv1D, self).__init__(1,  input_size, output_size, kernel_size, stride=stride, padding=padding,
-                                     dilation=dilation, groups=groups, bias=bias,
+        super(Conv1D, self).__init__(1, input_size, output_size, kernel_size, stride=stride, padding=padding,
+                                     dilation=dilation, groups=groups, use_bias=use_bias,
                                      activation=activation, num_layers=num_layers,
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout, dropout=dropout)
 
 
 class Conv2D(Conv):
-    def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1, bias=True,
-                 activation='linear', num_layers=1,
+    def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
+                 use_bias=True, activation='linear', num_layers=1,
                  batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
-        super(Conv2D, self).__init__(2,  input_size, output_size, kernel_size, stride=stride, padding=padding,
-                                     dilation=dilation, groups=groups, bias=bias,
+        super(Conv2D, self).__init__(2, input_size, output_size, kernel_size, stride=stride, padding=padding,
+                                     dilation=dilation, groups=groups, use_bias=use_bias,
                                      activation=activation, num_layers=num_layers,
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout, dropout=dropout)
 
 
 class Conv3D(Conv):
-    def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1, bias=True,
-                 activation='linear', num_layers=1,
+    def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
+                 use_bias=True, activation='linear', num_layers=1,
                  batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
-        super(Conv3D, self).__init__(3,  input_size, output_size, kernel_size, stride=stride, padding=padding,
-                                     dilation=dilation, groups=groups, bias=bias,
+        super(Conv3D, self).__init__(3, input_size, output_size, kernel_size, stride=stride, padding=padding,
+                                     dilation=dilation, groups=groups, use_bias=use_bias,
                                      activation=activation, num_layers=num_layers,
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout, dropout=dropout)
