@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-import backend as J
+from .. import backend as J
 flatten = J.flatten
 
 # TODO: Add a cropping function

@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-import layers.layer_utils as utils
+from . import layer_utils as utils
 
 import logging
 

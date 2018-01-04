@@ -3,8 +3,8 @@ import logging
 import torch.nn as nn
 import torch.nn.functional as F
 
-import layers.layer_utils as utils
-import layers.functions as L
+from . import layer_utils as utils
+from . import functions as L
 
 # TODO Create abstract layers for layers with params that includes weight regularizers
 
