@@ -52,6 +52,9 @@ def standardize(x):
 def from_numpy(x):
     return torch.from_numpy(x).cuda() if use_cuda else torch.from_numpy(x)
 
+def to_numpy(x):
+    return x.cpu().numpy() if use_cuda else x.numpy()
+
 
 # use_cuda = False
 FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
