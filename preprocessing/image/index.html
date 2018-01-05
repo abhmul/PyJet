@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Image - PyJet</title>
+  
+
+  <link rel="shortcut icon" href="../../img/favicon.ico">
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/highlight.css">
+
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Image";
+  </script>
+  
+  <script src="../../js/jquery-2.1.1.min.js"></script>
+  <script src="../../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../../js/highlight.pack.js"></script>
+  <script src="../../js/theme.js"></script> 
+
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href="../.." class="icon icon-home"> PyJet</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        <ul class="current">
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../..">Home</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <ul class="subnav">
+    <li><span>Models</span></li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../../models/SLModel/">SLModel</a>
+        
+    </li>
+
+        
+    </ul>
+<li>
+          
+            <li>
+    <ul class="subnav">
+    <li><span>Layers</span></li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../../layers/core/">Core Layers</a>
+        
+    </li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../../layers/convolutional/">Convolutional Layers</a>
+        
+    </li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../../layers/recurrent/">Recurrent Layers</a>
+        
+    </li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../../layers/functions/">Functions</a>
+        
+    </li>
+
+        
+    </ul>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../../data/">Data</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../../losses/">Losses</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../../metrics/">Metrics</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../../callbacks/">Callbacks</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <ul class="subnav">
+    <li><span>Preprocessing</span></li>
+
+        
+            
+    <li class="toctree-l1 current">
+        <a class="current" href="./">Image</a>
+        
+            <ul>
+            
+                <li class="toctree-l3"><a href="#imagedatagenerator">ImageDataGenerator</a></li>
+                
+            
+                <li class="toctree-l3"><a href="#standardize">standardize</a></li>
+                
+            
+                <li class="toctree-l3"><a href="#random_transform">random_transform</a></li>
+                
+            
+            </ul>
+        
+    </li>
+
+        
+    </ul>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../../backend/">Backend</a>
+        
+    </li>
+<li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../..">PyJet</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>Preprocessing &raquo;</li>
+        
+      
+    
+    <li>Image</li>
+    <li class="wy-breadcrumbs-aside">
+      
+        
+          <a href="https://github.com/abhmul/PyJet" class="icon icon-github"> Edit on GitHub</a>
+        
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/preprocessing/image.py#L84">[source]</a></span></p>
+<h3 id="imagedatagenerator">ImageDataGenerator</h3>
+<pre><code class="python">pyjet.preprocessing.image.ImageDataGenerator(generator, labels=True, augment_masks=True, samplewise_center=False, samplewise_std_normalization=False, rotation_range=0.0, width_shift_range=0.0, height_shift_range=0.0, shear_range=0.0, zoom_range=0.0, channel_shift_range=0.0, fill_mode='nearest', cval=0.0, horizontal_flip=False, vertical_flip=False, rescale=None, preprocessing_function=None, seed=None, data_format='channels_last')
+</code></pre>
+
+<p>Generate minibatches of image data with real-time data augmentation.
+<strong>Arguments</strong></p>
+<ul>
+<li><strong>samplewise_center</strong>: set each sample mean to 0.</li>
+<li><strong>samplewise_std_normalization</strong>: divide each input by its std.</li>
+<li><strong>rotation_range</strong>: degrees (0 to 180).</li>
+<li><strong>width_shift_range</strong>: fraction of total width.</li>
+<li><strong>height_shift_range</strong>: fraction of total height.</li>
+<li><strong>shear_range</strong>: shear intensity (shear angle in radians).</li>
+<li><strong>zoom_range</strong>: amount of zoom. if scalar z, zoom will be randomly picked
+in the range [1-z, 1+z]. A sequence of two can be passed instead
+to select this range.</li>
+<li><strong>channel_shift_range</strong>: shift range for each channels.</li>
+<li><strong>fill_mode</strong>: points outside the boundaries are filled according to the
+given mode ('constant', 'nearest', 'reflect' or 'wrap'). Default
+is 'nearest'.</li>
+<li><strong>cval</strong>: value used for points outside the boundaries when fill_mode is
+'constant'. Default is 0.</li>
+<li><strong>horizontal_flip</strong>: whether to randomly flip images horizontally.</li>
+<li><strong>vertical_flip</strong>: whether to randomly flip images vertically.</li>
+<li><strong>rescale</strong>: rescaling factor. If None or 0, no rescaling is applied,
+otherwise we multiply the data by the value provided. This is
+applied after the <code>preprocessing_function</code> (if any provided)
+but before any other transformation.</li>
+<li><strong>preprocessing_function</strong>: function that will be implied on each input.
+The function will run before any other modification on it.
+The function should take one argument:
+one image (Numpy tensor with rank 3),
+and should output a Numpy tensor with the same shape.</li>
+<li><strong>data_format</strong>: 'channels_first' or 'channels_last'. In 'channels_first' mode, the channels dimension
+(the depth) is at index 1, in 'channels_last' mode it is at index 3.
+It defaults to "channels_last".</li>
+</ul>
+<hr />
+<h3 id="standardize">standardize</h3>
+<pre><code class="python">standardize(self, x)
+</code></pre>
+
+<p>Apply the normalization configuration to a batch of inputs.
+<strong>Arguments</strong></p>
+<ul>
+<li><strong>x</strong>: batch of inputs to be normalized.
+<strong>Returns</strong></li>
+</ul>
+<p>The inputs, normalized.</p>
+<hr />
+<h3 id="random_transform">random_transform</h3>
+<pre><code class="python">random_transform(self, x, seed=None)
+</code></pre>
+
+<p>Randomly augment a single image tensor.
+<strong>Arguments</strong></p>
+<ul>
+<li><strong>x</strong>: 3D tensor, single image.</li>
+<li><strong>seed</strong>: random seed.
+<strong>Returns</strong></li>
+</ul>
+<p>A randomly transformed version of the input (same shape).</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../../backend/" class="btn btn-neutral float-right" title="Backend"/>Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../../callbacks/" class="btn btn-neutral" title="Callbacks"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+<div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+          <a class="icon icon-github" style="float: left; color: #fcfcfc"> GitHub</a>
+      
+      
+        <span><a href="../../callbacks/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../../backend/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Losses - PyJet</title>
+  
+
+  <link rel="shortcut icon" href="../img/favicon.ico">
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Losses";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script>
+  <script src="../js/theme.js"></script> 
+
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> PyJet</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        <ul class="current">
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="..">Home</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <ul class="subnav">
+    <li><span>Models</span></li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../models/SLModel/">SLModel</a>
+        
+    </li>
+
+        
+    </ul>
+<li>
+          
+            <li>
+    <ul class="subnav">
+    <li><span>Layers</span></li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../layers/core/">Core Layers</a>
+        
+    </li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../layers/convolutional/">Convolutional Layers</a>
+        
+    </li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../layers/recurrent/">Recurrent Layers</a>
+        
+    </li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../layers/functions/">Functions</a>
+        
+    </li>
+
+        
+    </ul>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../data/">Data</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 current">
+        <a class="current" href="./">Losses</a>
+        
+            <ul>
+            
+                <li class="toctree-l3"><a href="#bce_with_logits">bce_with_logits</a></li>
+                
+            
+                <li class="toctree-l3"><a href="#categorical_crossentropy">categorical_crossentropy</a></li>
+                
+            
+            </ul>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../metrics/">Metrics</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../callbacks/">Callbacks</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <ul class="subnav">
+    <li><span>Preprocessing</span></li>
+
+        
+            
+    <li class="toctree-l1 ">
+        <a class="" href="../preprocessing/image/">Image</a>
+        
+    </li>
+
+        
+    </ul>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../backend/">Backend</a>
+        
+    </li>
+<li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">PyJet</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Losses</li>
+    <li class="wy-breadcrumbs-aside">
+      
+        
+          <a href="https://github.com/abhmul/PyJet" class="icon icon-github"> Edit on GitHub</a>
+        
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h3 id="bce_with_logits">bce_with_logits</h3>
+<pre><code class="python">bce_with_logits(outputs, targets, size_average=True)
+</code></pre>
+
+<p>Computes the binary cross entropy between targets and output's logits.</p>
+<p>See :class:<code>~torch.nn.BCEWithLogitsLoss</code> for details.</p>
+<p><strong>Arguments</strong></p>
+<p>outputs -- A torch FloatTensor of arbitrary shape with a 1 dimensional channel axis
+targets -- A binary torch LongTensor of the same size without the channel axis
+size_average -- By default, the losses are averaged over observations for each minibatch.
+However, if the field size_average is set to False, the losses are instead
+summed for each minibatch.
+- <strong><em>_Returns</em>_:</strong></p>
+<p>A scalar tensor equal to the total loss of the output.</p>
+<ul>
+<li><strong>Examples:</strong>:</li>
+</ul>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>input = autograd.Variable(torch.randn(3), requires_grad=True)
+target = autograd.Variable(torch.FloatTensor(3).random_(2))
+loss = bce_with_logits(input, target)
+loss.backward()</p>
+</blockquote>
+</blockquote>
+</blockquote>
+<hr />
+<h3 id="categorical_crossentropy">categorical_crossentropy</h3>
+<pre><code class="python">categorical_crossentropy(outputs, targets, size_average=True)
+</code></pre>
+
+<p>Computes the categorical crossentropy loss over some outputs and targets according the
+equation for the ith output</p>
+<p>-log(output[target])</p>
+<p>and is accumulated with a sum or average over all outputs.</p>
+<ul>
+<li><strong><em>_Arguments</em>_:</strong></li>
+</ul>
+<p>outputs -- The torch FloatTensor output from a model with the shape (N, C) where N is the
+number of outputs and C is the number of classes.
+targets -- The torch LongTensor indicies of the ground truth with the shape (N,) where N is
+the number of outputs and each target t is 0 &lt;= t &lt; C.
+size_average -- By default, the losses are averaged over observations for each minibatch.
+However, if the field size_average is set to False, the losses are instead
+summed for each minibatch.
+- <strong><em>_Returns</em>_:</strong></p>
+<p>A scalar tensor equal to the total loss of the output.</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../metrics/" class="btn btn-neutral float-right" title="Metrics"/>Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../data/" class="btn btn-neutral" title="Data"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+<div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+          <a class="icon icon-github" style="float: left; color: #fcfcfc"> GitHub</a>
+      
+      
+        <span><a href="../data/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../metrics/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+
+</body>
+</html>

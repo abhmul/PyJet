@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+    
+    <url>
+     <loc>http://pyjet.io//</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+        
+    <url>
+     <loc>http://pyjet.io//models/SLModel/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    
+
+    
+        
+    <url>
+     <loc>http://pyjet.io//layers/core/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>http://pyjet.io//layers/convolutional/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>http://pyjet.io//layers/recurrent/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>http://pyjet.io//layers/functions/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    
+
+    
+    <url>
+     <loc>http://pyjet.io//data/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>http://pyjet.io//losses/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>http://pyjet.io//metrics/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>http://pyjet.io//callbacks/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+        
+    <url>
+     <loc>http://pyjet.io//preprocessing/image/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    
+
+    
+    <url>
+     <loc>http://pyjet.io//backend/</loc>
+     <lastmod>2018-01-05</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+</urlset>
