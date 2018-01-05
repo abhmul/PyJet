@@ -4,15 +4,15 @@ from collections import namedtuple
 
 # TODO Create a dataset for HDF5 and Torch Tensor
 
-VERBOSITY = namedtuple(
-    'VERBOSITY', ['QUIET', 'NORMAL', 'VERBOSE', 'DEBUG'])(0, 1, 2, 3)
+# VERBOSITY = namedtuple(
+#     'VERBOSITY', ['QUIET', 'NORMAL', 'VERBOSE', 'DEBUG'])(0, 1, 2, 3)
 
 
 class Dataset(object):
     """
     An abstract container for data designed to be passed to a model.
     This container should implement create_batch. It is only necessary
-    to impolement validation_split() if you use this module to split your
+    to implement validation_split() if you use this module to split your
     data into a train and test set. Same goes for kfold()
 
     # Note:
@@ -20,17 +20,17 @@ class Dataset(object):
         it should not be mutated in any way.
     """
 
-    def __init__(self, *args, verbosity=VERBOSITY.NORMAL, **kwargs):
-        self.verbosity = verbosity
+    def __init__(self, *args, **kwargs):
+        # self.verbosity = verbosity
         pass
 
     def __len__(self):
         """The length is used downstream by the generator if it is not inf."""
         return float('inf')
 
-    def log(self, statement, verbosity):
-        if self.verbosity >= verbosity:
-            print(statement)
+    # def log(self, statement, verbosity):
+    #     if self.verbosity >= verbosity:
+    #         print(statement)
 
     def create_batch(self, *args, **kwargs):
         """

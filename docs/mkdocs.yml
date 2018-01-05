@@ -1,0 +1,23 @@
+site_name: PyJet
+theme: readthedocs
+docs_dir: sources
+repo_url: https://github.com/abhmul/PyJet
+site_url: http://pyjet.io/
+site_description: 'Documentation for PyJet, The Pytorch Frontend for Deep Learning'
+
+pages:
+    - Home: index.md
+    - Models:
+      - SLModel: models/SLModel.md
+    - Layers:
+      - Core Layers: layers/core.md
+      - Convolutional Layers: layers/convolutional.md
+      - Recurrent Layers: layers/recurrent.md
+      - Functions: layers/functions.md
+    - Data: data.md
+    - Losses: losses.md
+    - Metrics: metrics.md
+    - Callbacks: callbacks.md
+    - Preprocessing:
+      - Image: preprocessing/image.md
+    - Backend: backend.md
