@@ -6,6 +6,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def build_rnn(rnn_type, input_size, output_size, num_layers=1, bidirectional=False,
+              input_dropout=0.0, dropout=0.0):
+    # Create the sequential
+    layer = nn.Sequential()
+    # Add the input dropout
+    if input_dropout:
+        layer.add_module(name="input-dropout", module=nn.Dropout(input_dropout))
+    layer.add_module(RNN.layer_constructors[rnn_type](input_size, output_size, num_layers=num_layers, dropout=dropout,
+                                                      bidirectional=bidirectional, batch_first=True))
+    logging.info("Creating layer: %r" % layer)
+    return layer
+
+
 class RNN(nn.Module):
 
     layer_constructors = {'gru': nn.GRU, 'lstm': nn.LSTM, "tanh_simple": partialmethod(nn.RNN, nonlinearity='tanh'),
@@ -26,25 +39,11 @@ class RNN(nn.Module):
         self.return_state = return_state
 
         # Build the layers
-        layer_constructor = RNN.layer_constructors[rnn_type]
-        self.rnn = layer_constructor(input_size, output_size, num_layers=num_layers, dropout=dropout,
-                                     bidirectional=bidirectional, batch_first=True)
-        self.input_dropout_p = input_dropout
-
-        # Used for constructing string representation
-        self.__str_params = ["{} Drop".format(self.input_dropout_p),
-                             "{} X {} {} RNN {} x {} {} Drop".format(self.num_layers,
-                                                                     "bidirectional" if bidirectional else "",
-                                                                     self.rnn_type, self.input_size, self.output_size,
-                                                                     self.dropout_p)]
-
-        # Logging
-        logging.info("Creating layer: {}".format(str(self)))
+        self.rnn_layers = build_rnn(rnn_type, input_size, output_size, num_layers=num_layers,
+                                    bidirectional=bidirectional, input_dropout=input_dropout, dropout=dropout)
 
     def forward(self, x):
-        if self.input_dropout_p:
-            x = F.dropout(x, p=self.input_dropout_p, training=self.training)
-        x, states = self.rnn(x)
+        x, states = self.rnn_layers(x)
         if not self.return_sequences:
             x = x[:, -1]
         if self.return_state:
@@ -52,10 +51,11 @@ class RNN(nn.Module):
         return x
 
     def __str__(self):
-        return "\n-> ".join(self.__str_params)
+        return ("%r\n\treturn_sequences={}, return_state={}" % self.rnn_layers).format(self.return_sequences,
+                                                                                       self.return_state)
 
     def __repr__(self):
-        return "-".join(self.__str_params)
+        return str(self)
 
 
 class SimpleRNN(RNN):

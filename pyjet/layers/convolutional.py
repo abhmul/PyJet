@@ -1,11 +1,34 @@
 import torch.nn as nn
-import torch.nn.functional as F
 
 from . import layer_utils as utils
 
 import logging
 
 # TODO: Add padding and cropping layers
+
+
+def build_conv(constructor, input_size, output_size, kernel_size, stride=1, padding=0, dilation=1, groups=1,
+               use_bias=True, activation='linear', num_layers=1,
+               batchnorm=False,
+               input_dropout=0.0, dropout=0.0):
+    # Create the sequential
+    layer = nn.Sequential()
+    # Add the input dropout
+    if input_dropout:
+        layer.add_module(name="input-dropout", module=nn.Dropout(input_dropout))
+    # Add each layer
+    for i in range(num_layers):
+        layer_input = input_size if i == 0 else output_size
+        layer.add_module(name="conv-%s" % i, module=constructor(layer_input, output_size, kernel_size, stride=stride,
+                                                                padding=padding, dilation=dilation, groups=groups,
+                                                                bias=use_bias))
+        if activation != "linear":
+            layer.add_module(name="{}-{}".format(activation, i), module=utils.get_activation_type(activation)())
+        if batchnorm:
+            layer.add_module(name="batchnorm-%s" % i, module=nn.BatchNorm1d(output_size))
+        if dropout:
+            layer.add_module(name="dropout-%s" % i, module=nn.Dropout(dropout))
+    return layer
 
 
 class Conv(nn.Module):
@@ -22,7 +45,7 @@ class Conv(nn.Module):
             raise NotImplementedError("padding: %s" % padding)
         if dimensions not in [1, 2, 3]:
             raise NotImplementedError("Conv{}D".format(dimensions))
-        padding = (kernel_size - stride) // 2 if padding == 'same' else padding
+        padding = (kernel_size - 1) // 2 if padding == 'same' else padding
 
         # Set up attributes
         self.dimensions = dimensions
@@ -39,56 +62,25 @@ class Conv(nn.Module):
         self.batchnorm = batchnorm
 
         # Build the layers
-        self.conv_layers = utils.construct_n_layers(Conv.layer_constructors[dimensions], num_layers, input_size,
-                                                    output_size, kernel_size,
-                                                    stride=stride, padding=padding, dilation=dilation,
-                                                    groups=groups, bias=use_bias)
-        # Add the extra stuff
-        self.activation = utils.get_activation_type(activation)
-        if batchnorm:
-            self.bn = nn.ModuleList([nn.BatchNorm1d(output_size) for _ in range(num_layers)])
-        else:
-            self.bn = []
-        self.input_dropout_p = input_dropout
-        self.dropout_p = dropout
+        self.conv_layers = build_conv(Conv.layer_constructors[dimensions], input_size, output_size, kernel_size,
+                                      stride=stride, padding=padding, dilation=dilation, groups=groups,
+                                      use_bias=use_bias, activation=activation, num_layers=num_layers,
+                                      batchnorm=batchnorm, input_dropout=input_dropout, dropout=dropout)
+        logging.info("Creating layers: %r" % self.conv_layers)
 
-        # Used for constructing string representation
-        self.__str_params = ["{} Drop".format(self.input_dropout_p),
-                             "{} Conv{}D {} x {}".format(self.activation_name, self.dimensions, self.input_size,
-                                                         self.output_size),
-                             "" if batchnorm else "{} Batchnorm".format(self.output_size),
-                             "{} Drop".format(self.dropout_p)]
-        for _ in range(num_layers):
-            self.__str_params.append(
-                "{} Conv{}D {} x {}".format(self.activation_name, self.dimensions, self.output_size, self.output_size))
-            self.__str_params.append("" if batchnorm else "{} Batchnorm".format(self.output_size))
-            self.__str_params.append("{} Drop".format(self.dropout_p))
+    def calc_output_size(self, input_size):
+        output_size = (input_size - self.dilation * (self.kernel_size - 1) + 2 * self.padding - 1) // self.stride + 1
+        return output_size
 
-        # Logging
-        logging.info("Creating layer: {}".format(str(self)))
-
-    def forward(self, x):
-        # Expect x as BatchSize x Length x Filters. Move filters for the conv layer
-        x = x.transpose(-1, 1).contiguous()
-        # Run the input dropout
-        if self.input_dropout_p:
-            x = F.dropout(x, p=self.input_dropout_p, training=self.training)
-        # Run each of the n layers
-        for i, conv in enumerate(self.conv_layers):
-            x = self.activation(conv(x))
-            if self.batchnorm:
-                x = self.bn[i](x)
-            if self.dropout_p:
-                x = F.dropout(x, p=self.dropout_p, training=self.training)
-        # Undo it to return back to the original shape
-        x = x.transpose(-1, 1).contiguous()
-        return x
+    def forward(self, inputs):
+        # Expect inputs as BatchSize x Filters x Length1 x ... x LengthN
+        return self.conv_layers(inputs)
 
     def __str__(self):
-        return "\n-> ".join(self.__str_params)
+        return "%r" % self.conv_layers
 
     def __repr__(self):
-        return "-".join(self.__str_params)
+        return str(self)
 
 
 class Conv1D(Conv):
@@ -101,6 +93,12 @@ class Conv1D(Conv):
                                      activation=activation, num_layers=num_layers,
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout, dropout=dropout)
+
+    def fix_input(self, inputs):
+        return inputs.transpose(1, 2)
+
+    def unfix_input(self, outputs):
+        return outputs.transpose(1, 2)
 
 
 class Conv2D(Conv):

@@ -4,10 +4,10 @@ import torch.nn.functional as F
 pool_types = {"no_pool": lambda *args, **kwargs: lambda x: x,
               "max": nn.MaxPool1d,
               "avg": nn.AvgPool1d}
-activation_types = {"linear": lambda x: x,
-                    "relu": F.relu,
-                    "softmax": F.softmax,
-                    "tanh": F.tanh}
+activation_types = {"linear": None,
+                    "relu": nn.ReLU,
+                    "softmax": nn.Softmax,
+                    "tanh": nn.Tanh}
 
 
 def get_type(item_type, type_dict, fail_message):

@@ -9,6 +9,24 @@ from . import functions as L
 # TODO Create abstract layers for layers with params that includes weight regularizers
 
 
+def build_fully_connected(input_size, output_size, use_bias=True, activation='linear', num_layers=1, batchnorm=False,
+                          input_dropout=0.0, dropout=0.0):
+    layer = nn.Sequential()
+    if input_dropout:
+        layer.add_module(name="input-dropout", module=nn.Dropout(input_dropout))
+    for i in range(num_layers):
+        layer_input = input_size if i == 0 else output_size
+        layer.add_module(name="fullyconnected-%s" % i, module=nn.Linear(layer_input, output_size, bias=use_bias))
+        if activation != "linear":
+            layer.add_module(name="{}-{}".format(activation, i), module=DPCNN.activations[activation]())
+        if batchnorm:
+            layer.add_module(name="batchnorm-%s" % i, module=nn.BatchNorm1d(output_size))
+        if dropout:
+            layer.add_module(name="dropout-%s" % i, module=nn.Dropout(dropout))
+    logging.info("Creating layer: %r" % layer)
+    return layer
+
+
 class FullyConnected(nn.Module):
     """Just your regular fully-connected NN layer.
         `FullyConnected` implements the operation:
@@ -53,50 +71,18 @@ class FullyConnected(nn.Module):
         self.batchnorm = batchnorm
 
         # Build the layers
-        self.linear_layers = utils.construct_n_layers(nn.Linear, num_layers, input_size, output_size, bias=True)
-        # Add the extra stuff
-        self.activation = utils.get_activation_type(activation)
-        if batchnorm:
-            self.bn = nn.ModuleList([nn.BatchNorm1d(output_size) for _ in range(num_layers)])
-        else:
-            self.bn = []
-        self.input_dropout_p = input_dropout
-        self.dropout_p = dropout
+        self.layers = build_fully_connected(input_size, output_size, use_bias=use_bias, activation=activation,
+                                            num_layers=num_layers, batchnorm=batchnorm, input_dropout=input_dropout,
+                                            dropout=dropout)
 
-        # Used for constructing string representation
-        self.__str_params = ["{} Drop".format(self.input_dropout_p),
-                             "{} FullyConnected {} x {}".format(self.activation_name, self.input_size, self.output_size),
-                             "" if batchnorm else "{} Batchnorm".format(self.output_size),
-                             "{} Drop".format(self.dropout_p)]
-        for _ in range(num_layers):
-            self.__str_params.append("{} FullyConnected {} x {}".format(self.activation_name, self.output_size, self.output_size))
-            self.__str_params.append("" if batchnorm else "{} Batchnorm".format(self.output_size))
-            self.__str_params.append("{} Drop".format(self.dropout_p))
-        # Logging
-        logging.info("Using Linear layer with {} input, {} output, and {}".format(
-            input_size, output_size, "bias" if use_bias else "no bias"))
-        logging.info("Using activation %s" % self.activation.__name__)
-        logging.info("Using batchnorm1d" if self.bn is not None else "Not using batchnorm1d")
-        logging.info("Using {} input dropout and {} dropout".format(self.input_dropout_p, self.dropout_p))
-
-    def forward(self, x):
-        # Run the input dropout
-        if self.input_dropout_p:
-            x = F.dropout(x, p=self.input_dropout_p, training=self.training)
-        # Run each of the n layers
-        for i, linear in enumerate(self.linear_layers):
-            x = self.activation(linear(x))
-            if self.batchnorm:
-                x = self.bn[i](x.unsqueeze(-1)).squeeze(-1)
-            if self.dropout_p:
-                x = F.dropout(x, p=self.dropout_p, training=self.training)
-        return x
+    def forward(self, inputs):
+        return self.layers(inputs)
 
     def __str__(self):
-        return "\n-> ".join(self.__str_params)
+        return "%r" % self.layers
 
     def __repr__(self):
-        return "-".join(self.__str_params)
+        return str(self)
 
 
 class Flatten(nn.Module):
