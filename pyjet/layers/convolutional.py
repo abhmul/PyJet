@@ -7,7 +7,7 @@ import logging
 # TODO: Add padding and cropping layers
 
 
-def build_conv(constructor, input_size, output_size, kernel_size, stride=1, padding=0, dilation=1, groups=1,
+def build_conv(dimensions, input_size, output_size, kernel_size, stride=1, padding=0, dilation=1, groups=1,
                use_bias=True, activation='linear', num_layers=1,
                batchnorm=False,
                input_dropout=0.0, dropout=0.0):
@@ -19,13 +19,14 @@ def build_conv(constructor, input_size, output_size, kernel_size, stride=1, padd
     # Add each layer
     for i in range(num_layers):
         layer_input = input_size if i == 0 else output_size
-        layer.add_module(name="conv-%s" % i, module=constructor(layer_input, output_size, kernel_size, stride=stride,
-                                                                padding=padding, dilation=dilation, groups=groups,
-                                                                bias=use_bias))
+        layer.add_module(name="conv-%s" % i,
+                         module=Conv.layer_constructors[dimensions](layer_input, output_size, kernel_size,
+                                                                    stride=stride, padding=padding, dilation=dilation,
+                                                                    groups=groups, bias=use_bias))
         if activation != "linear":
             layer.add_module(name="{}-{}".format(activation, i), module=utils.get_activation_type(activation)())
         if batchnorm:
-            layer.add_module(name="batchnorm-%s" % i, module=nn.BatchNorm1d(output_size))
+            layer.add_module(name="batchnorm-%s" % i, module=Conv.bn_constructors[dimensions](output_size))
         if dropout:
             layer.add_module(name="dropout-%s" % i, module=nn.Dropout(dropout))
     return layer
@@ -34,6 +35,7 @@ def build_conv(constructor, input_size, output_size, kernel_size, stride=1, padd
 class Conv(nn.Module):
 
     layer_constructors = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}
+    bn_constructors = {1: nn.BatchNorm1d, 2: nn.BatchNorm2d, 3: nn.BatchNorm3d}
 
     def __init__(self, dimensions, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
                  use_bias=True, activation='linear', num_layers=1,
@@ -62,7 +64,7 @@ class Conv(nn.Module):
         self.batchnorm = batchnorm
 
         # Build the layers
-        self.conv_layers = build_conv(Conv.layer_constructors[dimensions], input_size, output_size, kernel_size,
+        self.conv_layers = build_conv(dimensions, input_size, output_size, kernel_size,
                                       stride=stride, padding=padding, dilation=dilation, groups=groups,
                                       use_bias=use_bias, activation=activation, num_layers=num_layers,
                                       batchnorm=batchnorm, input_dropout=input_dropout, dropout=dropout)
