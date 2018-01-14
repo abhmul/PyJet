@@ -134,16 +134,22 @@
         
             <ul>
             
-                <li class="toctree-l3"><a href="#metriclogger">MetricLogger</a></li>
-                
-            
-                <li class="toctree-l3"><a href="#modelcheckpoint">ModelCheckpoint</a></li>
-                
-            
                 <li class="toctree-l3"><a href="#plotter">Plotter</a></li>
                 
             
+                <li class="toctree-l3"><a href="#metriclogger">MetricLogger</a></li>
+                
+            
+                <li class="toctree-l3"><a href="#reducelronplateau">ReduceLROnPlateau</a></li>
+                
+            
+                <li class="toctree-l3"><a href="#lrscheduler">LRScheduler</a></li>
+                
+            
                 <li class="toctree-l3"><a href="#callback">Callback</a></li>
+                
+            
+                <li class="toctree-l3"><a href="#modelcheckpoint">ModelCheckpoint</a></li>
                 
             
             </ul>
@@ -209,49 +215,61 @@
           <div role="main">
             <div class="section">
               
-                <p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L200">[source]</a></span></p>
+                <p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L153">[source]</a></span></p>
+<h3 id="plotter">Plotter</h3>
+<pre><code class="python">pyjet.callbacks.Plotter(monitor, scale='linear', plot_during_train=True, save_to_file=None, block_on_end=True)
+</code></pre>
+
+<hr />
+<p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L201">[source]</a></span></p>
 <h3 id="metriclogger">MetricLogger</h3>
 <pre><code class="python">pyjet.callbacks.MetricLogger(log_fname)
 </code></pre>
 
 <hr />
-<p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L60">[source]</a></span></p>
-<h3 id="modelcheckpoint">ModelCheckpoint</h3>
-<pre><code class="python">pyjet.callbacks.ModelCheckpoint(filepath, monitor, monitor_val=True, verbose=0, save_best_only=False, mode='auto', period=1)
+<p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L224">[source]</a></span></p>
+<h3 id="reducelronplateau">ReduceLROnPlateau</h3>
+<pre><code class="python">pyjet.callbacks.ReduceLROnPlateau(optimizer, monitor, monitor_val=True, factor=0.1, patience=10, verbose=0, mode='auto', epsilon=0.0001, cooldown=0, min_lr=0)
 </code></pre>
 
-<p>Save the model after every epoch.
-<code>filepath</code> can contain named formatting options,
-which will be filled the value of <code>epoch</code> and
-keys in <code>logs</code> (passed in <code>on_epoch_end</code>).
-For example: if <code>filepath</code> is <code>weights.{epoch:02d}-{val_loss:.2f}.hdf5</code>,
-then the model checkpoints will be saved with the epoch number and
-the validation loss in the filename.
-<strong>Arguments</strong></p>
+<p>Reduce learning rate when a metric has stopped improving.
+Models often benefit from reducing the learning rate by a factor
+of 2-10 once learning stagnates. This callback monitors a
+quantity and if no improvement is seen for a 'patience' number
+of epochs, the learning rate is reduced.
+<strong>Example</strong></p>
+<pre><code class="python">reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+                              patience=5, min_lr=0.001)
+model.fit(X_train, Y_train, callbacks=[reduce_lr])
+</code></pre>
+
+<p><strong>Arguments</strong></p>
 <ul>
-<li><strong>filepath</strong>: string, path to save the model file.</li>
-<li><strong>monitor</strong>: quantity to monitor.</li>
-<li><strong>verbose</strong>: verbosity mode, 0 or 1.</li>
-<li><strong>save_best_only</strong>: if <code>save_best_only=True</code>,
-the latest best model according to
-the quantity monitored will not be overwritten.</li>
-<li><strong>mode</strong>: one of {auto, min, max}.
-If <code>save_best_only=True</code>, the decision
-to overwrite the current save file is made
-based on either the maximization or the
-minimization of the monitored quantity. For <code>val_acc</code>,
-this should be <code>max</code>, for <code>val_loss</code> this should
-be <code>min</code>, etc. In <code>auto</code> mode, the direction is
-automatically inferred from the name of the monitored quantity.</li>
-<li><strong>save_weights_only</strong>: if True, then only the model's weights will be
-saved (<code>model.save_weights(filepath)</code>), else the full model
-is saved (<code>model.save(filepath)</code>).</li>
-<li><strong>period</strong>: Interval (number of epochs) between checkpoints.</li>
+<li><strong>optimizer</strong>: the pytorch optimizer to modify</li>
+<li><strong>monitor</strong>: quantity to be monitored.</li>
+<li><strong>monitor_val</strong>: whether or not to monitor the validation quantity.</li>
+<li><strong>factor</strong>: factor by which the learning rate will
+be reduced. new_lr = lr * factor</li>
+<li><strong>patience</strong>: number of epochs with no improvement
+after which learning rate will be reduced.</li>
+<li><strong>verbose</strong>: int. 0: quiet, 1: update messages.</li>
+<li><strong>mode</strong>: one of {auto, min, max}. In <code>min</code> mode,
+lr will be reduced when the quantity
+monitored has stopped decreasing; in <code>max</code>
+mode it will be reduced when the quantity
+monitored has stopped increasing; in <code>auto</code>
+mode, the direction is automatically inferred
+from the name of the monitored quantity.</li>
+<li><strong>epsilon</strong>: threshold for measuring the new optimum,
+to only focus on significant changes.</li>
+<li><strong>cooldown</strong>: number of epochs to wait before resuming
+normal operation after lr has been reduced.</li>
+<li><strong>min_lr</strong>: lower bound on the learning rate.</li>
 </ul>
 <hr />
-<p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L152">[source]</a></span></p>
-<h3 id="plotter">Plotter</h3>
-<pre><code class="python">pyjet.callbacks.Plotter(monitor, scale='linear', plot_during_train=True, save_to_file=None, block_on_end=True)
+<p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L344">[source]</a></span></p>
+<h3 id="lrscheduler">LRScheduler</h3>
+<pre><code class="python">pyjet.callbacks.LRScheduler(optimizer, schedule, verbose=0)
 </code></pre>
 
 <hr />
@@ -281,6 +299,41 @@ optionally include <code>val_loss</code>
 the number of samples in the current batch.</li>
 <li><strong>on_batch_end</strong>: logs include <code>loss</code>, and optionally <code>acc</code>
 (if accuracy monitoring is enabled).</li>
+</ul>
+<hr />
+<p><span style="float:right;"><a href="https://github.com/PyJet/tree/master/pyjet/pyjet/callbacks.py#L60">[source]</a></span></p>
+<h3 id="modelcheckpoint">ModelCheckpoint</h3>
+<pre><code class="python">pyjet.callbacks.ModelCheckpoint(filepath, monitor, monitor_val=True, verbose=0, save_best_only=False, mode='auto', period=1)
+</code></pre>
+
+<p>Save the model after every epoch.
+<code>filepath</code> can contain named formatting options,
+which will be filled the value of <code>epoch</code> and
+keys in <code>logs</code> (passed in <code>on_epoch_end</code>).
+For example: if <code>filepath</code> is <code>weights.{epoch:02d}-{val_loss:.2f}.hdf5</code>,
+then the model checkpoints will be saved with the epoch number and
+the validation loss in the filename.
+<strong>Arguments</strong></p>
+<ul>
+<li><strong>filepath</strong>: string, path to save the model file.</li>
+<li><strong>monitor</strong>: quantity to monitor.</li>
+<li><strong>monitor_val</strong>: whether or not to monitor the validation quantity.</li>
+<li><strong>verbose</strong>: verbosity mode, 0 or 1.</li>
+<li><strong>save_best_only</strong>: if <code>save_best_only=True</code>,
+the latest best model according to
+the quantity monitored will not be overwritten.</li>
+<li><strong>mode</strong>: one of {auto, min, max}.
+If <code>save_best_only=True</code>, the decision
+to overwrite the current save file is made
+based on either the maximization or the
+minimization of the monitored quantity. For <code>val_acc</code>,
+this should be <code>max</code>, for <code>val_loss</code> this should
+be <code>min</code>, etc. In <code>auto</code> mode, the direction is
+automatically inferred from the name of the monitored quantity.</li>
+<li><strong>save_weights_only</strong>: if True, then only the model's weights will be
+saved (<code>model.save_weights(filepath)</code>), else the full model
+is saved (<code>model.save(filepath)</code>).</li>
+<li><strong>period</strong>: Interval (number of epochs) between checkpoints.</li>
 </ul>
               
             </div>
