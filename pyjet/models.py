@@ -175,6 +175,7 @@ class SLModel(nn.Module):
         torch_x = self.cast_input_to_torch(x, volatile=True)
         # Make the prediction
         torch_preds = self(torch_x)
+        self.zero_grad()
         # cast to numpy and return
         return self.cast_output_to_numpy(torch_preds)
 

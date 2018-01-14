@@ -340,3 +340,19 @@ class ReduceLROnPlateau(Callback):
     def in_cooldown(self):
         return self.cooldown_counter > 0
 
+
+class LRScheduler(Callback):
+
+    def __init__(self, optimizer, schedule, verbose=0):
+        super().__init__()
+        self.optimizer = optimizer
+        self.schedule = schedule
+        self.verbose = verbose
+
+    def on_epoch_begin(self, epoch, train_logs=None, val_logs=None):
+        new_lr = self.schedule(epoch)
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = new_lr
+        if self.verbose > 1:
+            print('\nEpoch %05d: LRScheduler setting lr to %s.' % (epoch + 1, new_lr))
+
