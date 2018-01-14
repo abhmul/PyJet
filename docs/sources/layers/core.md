@@ -1,4 +1,4 @@
-<span style="float:right;">[[source]](https://github.com/PyJet/tree/master/pyjet/pyjet/layers/core.py#L12)</span>
+<span style="float:right;">[[source]](https://github.com/PyJet/tree/master/pyjet/pyjet/layers/core.py#L30)</span>
 ### FullyConnected
 
 ```python
@@ -41,7 +41,7 @@ __Output shape__
 
 ----
 
-<span style="float:right;">[[source]](https://github.com/PyJet/tree/master/pyjet/pyjet/layers/core.py#L102)</span>
+<span style="float:right;">[[source]](https://github.com/PyJet/tree/master/pyjet/pyjet/layers/core.py#L88)</span>
 ### Flatten
 
 ```python

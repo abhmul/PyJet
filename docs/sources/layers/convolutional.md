@@ -1,4 +1,4 @@
-<span style="float:right;">[[source]](https://github.com/PyJet/tree/master/pyjet/pyjet/layers/convolutional.py#L94)</span>
+<span style="float:right;">[[source]](https://github.com/PyJet/tree/master/pyjet/pyjet/layers/convolutional.py#L88)</span>
 ### Conv1D
 
 ```python
