@@ -13,7 +13,7 @@ def build_rnn(rnn_type, input_size, output_size, num_layers=1, bidirectional=Fal
     # Add the input dropout
     if input_dropout:
         layer.add_module(name="input-dropout", module=nn.Dropout(input_dropout))
-    layer.add_module(RNN.layer_constructors[rnn_type](input_size, output_size, num_layers=num_layers, dropout=dropout,
+    layer.add_module(name="rnn", module=RNN.layer_constructors[rnn_type](input_size, output_size, num_layers=num_layers, dropout=dropout,
                                                       bidirectional=bidirectional, batch_first=True))
     logging.info("Creating layer: %r" % layer)
     return layer

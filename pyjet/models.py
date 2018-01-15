@@ -7,6 +7,15 @@ from . import backend as J
 from .training import ProgBar, MetricLogs
 
 
+python_iterables = {list, set, tuple, frozenset}
+
+
+def standardize_list_input(inputs):
+    if type(inputs) in python_iterables:
+        return list(inputs)
+    return [inputs]
+
+
 # TODO Not sure whether I'll need to seperate RL models and SL models. Hopefully
 # I planned this out right
 class SLModel(nn.Module):
@@ -41,7 +50,7 @@ class SLModel(nn.Module):
             return loss_fn(self.loss_in, targets)
         return loss
 
-    def train_on_batch(self, x, target, optimizer, loss_fn, metrics=()):
+    def train_on_batch(self, x, target, optimizers, loss_fn, metrics=()):
         self.cast_model_to_cuda()
         self.train()
         # Cast inputs to a torch variable
@@ -55,9 +64,9 @@ class SLModel(nn.Module):
         if self.aux_loss:
             loss += sum(aux_loss(torch_target) for aux_loss in self.aux_loss)
         # Update the weights
-        optimizer.zero_grad()
+        [optimizer.zero_grad() for optimizer in optimizers]
         loss.backward()
-        optimizer.step()
+        [optimizer.step() for optimizer in optimizers]
         # Calculate the metrics
         metric_scores = [metric(torch_preds, torch_target).data[0]
                          for metric in metrics]
@@ -94,7 +103,8 @@ class SLModel(nn.Module):
                       loss_fn, validation_generator=None, validation_steps=0,
                       metrics=(), callbacks=(), initial_epoch=0):
         self.cast_model_to_cuda()
-        metrics = list(metrics)
+        optimizers = standardize_list_input(optimizer)
+        metrics = standardize_list_input(metrics)
         loss_fn = self.compile_loss(loss_fn)
         # Register the model with each callback
         [callback.set_model(self) for callback in callbacks]
@@ -130,7 +140,7 @@ class SLModel(nn.Module):
                 # else:
                 # raise ValueError("Generator output had a length of %s" % len(generator_output))
                 b_loss, b_metrics = self.train_on_batch(
-                    x, target, optimizer, loss_fn, metrics)
+                    x, target, optimizers, loss_fn, metrics)
                 # Add stats to the batch_logs
                 batch_logs.update_logs(
                     [loss_fn] + metrics, [b_loss] + b_metrics)
