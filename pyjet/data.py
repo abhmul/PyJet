@@ -262,6 +262,27 @@ class NpDataset(Dataset):
 
         return train_split, val_split
 
+    def get_kfold_indices(self, k, shuffle, seed):
+        if shuffle:
+            if seed is not None:
+                np.random.seed(seed)
+            indicies = np.random.permutation(len(self))
+
+        for i in range(k):
+            split = 1.0 / k
+            # Default technique of splitting the data
+            split_start = int(i * split * len(self))
+            split_end = int((i+1) * split * len(self))
+            val_split = slice(split_start, split_end)
+            train_split_a = slice(0, split_start)
+            train_split_b = slice(split_end, None)
+            if shuffle:
+                train_split_a = indicies[train_split_a]
+                train_split_b = indicies[train_split_b]
+                val_split = indicies[val_split]
+
+            yield train_split_a, train_split_b, val_split
+
     def validation_split(self, split=0.2, shuffle=False, seed=None, stratified=False):
         """
         Splits the NpDataset into two smaller datasets based on the split
@@ -293,6 +314,37 @@ class NpDataset(Dataset):
         val_data = NpDataset(self.x[val_split],
                              None if self.y is None else self.y[val_split])
         return train_data, val_data
+
+    def kfold(self, k=5, shuffle=False, seed=None):
+        """
+        An iterator that yields one fold of the kfold split of the data
+        # Arguments:
+            k -- The number of folds to use. Default: 5
+            shuffle -- Whether or not to randomly sample the validation set
+                       and train set from the parent dataset. Default: False
+            seed -- A seed for the random number generator (optional).
+
+        # Yields
+            A train dataset with 1-1/k fraction of the data and a validation
+            dataset with 1\k fraction of the data. Each subsequent validation
+            set contains a different region of the entire dataset. The intersection
+            of each validation set is empty and the union of each is the entire dataset.
+
+        # Note
+            Shuffling the dataset will at one point cause double the size of
+            the dataset to be loaded into RAM. If this is an issue, I suggest
+            you store your dataset on disk split up into validation and train
+            so you don't do this splitting in memory. You can set the
+            destroy_self flag to True if you can afford the split, but want to
+            reclaim the memory from the parent dataset.
+        """
+        for train_split_a, train_split_b, val_split in self.get_kfold_indices(k, shuffle, seed):
+            train_data = NpDataset(np.concatenate([self.x[train_split_a], self.x[train_split_b]]),
+                                   None if not self.output_labels else np.concatenate(
+                                       [self.y[train_split_a], self.y[train_split_b]]))
+            val_data = NpDataset(self.x[val_split],
+                                 None if not self.output_labels else self.y[val_split])
+            yield train_data, val_data
 
 
 class HDF5Dataset(Dataset):
