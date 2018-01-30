@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-
+from sklearn.metrics import roc_auc_score as sk_roc_auc_score
+from torch.autograd import Variable
 
 def topk_accuracy(output, target, topk):
     """Computes the precision@k for the specified values of k
@@ -35,3 +36,11 @@ def topk_accuracy(output, target, topk):
 
 def accuracy(output, target):
     return topk_accuracy(output, target, topk=1)
+
+
+def roc_auc_score(output, target):
+    np_output = output.to_numpy()
+    np_target = target.to_numpy()
+    return Variable(
+        torch.Tensor([sum(sk_roc_auc_score(np_target[:, i], np_output[:, i]) for i in range(np_output.shape[1]))]),
+        volatile=True)
