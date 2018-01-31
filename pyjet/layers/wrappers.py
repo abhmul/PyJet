@@ -9,6 +9,27 @@ from .. import backend as J
 import functions as L
 
 
+class Identity(nn.Module):
+    """
+    This is used to create layer wrappers without passing a layer.
+    """
+    def __init__(self):
+        super(Identity, self).__init__()
+
+    def forward(self, x):
+        return x
+
+    def __repr__(self):
+        return "Identity()"
+
+    def __str__(self):
+        return repr(self)
+
+
+# Singleton Identity layer
+Identity = Identity()
+
+
 class SequenceInput(nn.Module):
     """
     Wrapper for a layer that should take in variable length sequences as inputs.
@@ -19,7 +40,7 @@ class SequenceInput(nn.Module):
 
     Dropout will be applied to the nonpadded sequence.
     """
-    def __init__(self, layer, input_dropout=0., dropout=0., pad_value=0.):
+    def __init__(self, layer=Identity, input_dropout=0., dropout=0., pad_value=0.):
         super(SequenceInput, self).__init__()
         self.layer = layer
         self.input_dropout = nn.Dropout(input_dropout)
@@ -58,7 +79,7 @@ class MaskedInput(nn.Module):
     The wrapper requires that sequence lengths are not modified when passed through the layer.
     """
 
-    def __init__(self, layer, mask_value=0.):
+    def __init__(self, layer=Identity, mask_value=0.):
         super(MaskedInput, self).__init__()
         self.layer = layer
         self.mask_value = mask_value
@@ -71,7 +92,7 @@ class MaskedInput(nn.Module):
             self.masker = J.zeros(*x.size()).byte()
         x = self.layer(x)
         # Create the mask
-        [self.masker[i, seq_len:].fill_(1) for i, seq_len in enumerate(seq_lens)]
+
         return x.masked_fill_(Variable(self.masker), self.mask_value)
 
     def __str__(self):
