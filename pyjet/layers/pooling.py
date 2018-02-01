@@ -41,6 +41,9 @@ class StridedPool(nn.Module):
         # Expect x as BatchSize x Filters x Length1 x ... x LengthN
         return self.pool(x)
 
+    def reset_parameters(self):
+        pass
+
     def __str__(self):
         return "%r" % self.pool
 
@@ -72,6 +75,31 @@ class GlobalMaxPooling1D(nn.Module):
         # The input comes in as B x L x E
         return torch.max(x, dim=1)[0]
 
+    def reset_parameters(self):
+        pass
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        return self.__class__.__name__ + "()"
+
+
+class SequenceGlobalMaxPooling1D(nn.Module):
+
+    def __init__(self):
+        super(SequenceGlobalMaxPooling1D, self).__init__()
+
+        # Logging
+        logging.info("Creating layer: {}".format(str(self)))
+
+    def forward(self, x):
+        # The input comes in as B x Li x E
+        return torch.stack([torch.max(seq, dim=0)[0] for seq in x])
+
+    def reset_parameters(self):
+        pass
+
     def __str__(self):
         return repr(self)
 
@@ -90,6 +118,9 @@ class GlobalAveragePooling1D(nn.Module):
     def forward(self, x):
         # The input comes in as B x L x E
         return torch.mean(x, dim=1)
+
+    def reset_parameters(self):
+        pass
 
     def __str__(self):
         return repr(self)
@@ -110,6 +141,9 @@ class KMaxPooling1D(nn.Module):
     def forward(self, x):
         # B x L x E
         return L.kmax_pooling(x, 1, self.k)
+
+    def reset_parameters(self):
+        pass
 
     def __str__(self):
         return repr(self)

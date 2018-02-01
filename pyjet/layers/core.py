@@ -78,6 +78,12 @@ class FullyConnected(nn.Module):
     def forward(self, inputs):
         return self.layers(inputs)
 
+    def reset_parameters(self):
+        for layer in self.layers:
+            if isinstance(layer, nn.BatchNorm1d) or isinstance(layer, nn.Linear):
+                logging.info("Resetting layer %s" % layer)
+                layer.reset_parameters()
+
     def __str__(self):
         return "%r" % self.layers
 
@@ -104,4 +110,7 @@ class Flatten(nn.Module):
 
     def forward(self, x):
         return L.flatten(x)
+
+    def reset_parameters(self):
+        pass
 

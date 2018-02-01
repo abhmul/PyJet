@@ -78,6 +78,13 @@ class Conv(nn.Module):
         # Expect inputs as BatchSize x Filters x Length1 x ... x LengthN
         return self.unfix_input(self.conv_layers(self.fix_input(inputs)))
 
+    def reset_parameters(self):
+        for layer in self.conv_layers:
+            if any(isinstance(layer, self.layer_constructors[dim]) or isinstance(layer, self.bn_constructors[dim])
+                   for dim in self.layer_constructors):
+                logging.info("Resetting layer %s" % layer)
+                layer.reset_parameters()
+
     def __str__(self):
         return "%r" % self.conv_layers
 

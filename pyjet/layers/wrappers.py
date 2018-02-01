@@ -19,6 +19,9 @@ class Identity(nn.Module):
     def forward(self, x):
         return x
 
+    def reset_paramaters(self):
+        pass
+
     def __repr__(self):
         return "Identity()"
 
@@ -61,6 +64,9 @@ class SequenceInput(nn.Module):
         if self.dropout_p:
             x = [self.dropout(sample.unsqueeze(0)).squeeze(0) for sample in x]
         return x
+
+    def reset_paramaters(self):
+        pass
 
     def __str__(self):
         return repr(self)

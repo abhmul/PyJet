@@ -50,6 +50,12 @@ class RNN(nn.Module):
             return x, states
         return x
 
+    def reset_parameters(self):
+        for layer in self.rnn_layers:
+            if isinstance(layer, nn.RNNBase):
+                logging.info("Resetting layer %s" % layer)
+                layer.reset_parameters()
+
     def __str__(self):
         return ("%r\n\treturn_sequences={}, return_state={}" % self.rnn_layers).format(self.return_sequences,
                                                                                        self.return_state)
