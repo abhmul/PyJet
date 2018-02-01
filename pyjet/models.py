@@ -122,8 +122,9 @@ class SLModel(nn.Module):
         # Compute the np preds over the whole prediction set
         torch_metric_vals = {metric.__name__: batch_logs.average(metric) for metric in metrics}
         # No-op if np_metrics is not given
-        preds = np.concatenate(preds, axis=0)
-        targets = np.concatenate(targets, axis=0)
+        if len(np_metrics):
+            preds = np.concatenate(preds, axis=0)
+            targets = np.concatenate(targets, axis=0)
         np_metric_vals = {metric.__name__: metric(preds, targets) for metric in np_metrics}
         return {**torch_metric_vals, **np_metric_vals}
 
@@ -142,7 +143,7 @@ class SLModel(nn.Module):
                           0) and validation_generator is not None
         # Set up the logs\
         train_logs = MetricLogs([loss_fn] + metrics)
-        val_logs = MetricLogs([loss_fn] + metrics)
+        val_logs = MetricLogs([loss_fn] + metrics + np_metrics)
         # Run the callbacks
         [callback.on_train_begin(train_logs=train_logs, val_logs=val_logs)
          for callback in callbacks]
