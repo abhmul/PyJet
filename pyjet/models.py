@@ -88,6 +88,7 @@ class SLModel(nn.Module):
         torch_target = self.cast_target_to_torch(target, volatile=True)
         # Make the prediction
         torch_preds = self(torch_x)
+        preds = self.cast_output_to_numpy(torch_preds)
         # Calculate the metrics
         metric_vals = [metric(torch_preds, torch_target).data[0] for metric in metrics]
         # Clean up some variables
@@ -96,11 +97,12 @@ class SLModel(nn.Module):
         del torch_target
         if J.use_cuda:
             torch.cuda.empty_cache()
-        return metric_vals
+        return metric_vals, preds
 
-    def validate_generator(self, val_generator, validation_steps, loss_fn=None, metrics=()):
+    def validate_generator(self, val_generator, validation_steps, loss_fn=None, metrics=(), np_metrics=()):
         self.cast_model_to_cuda()
         metrics = list(metrics)
+        np_metrics = list(np_metrics)
         if loss_fn is not None:
             loss_fn = self.compile_loss(loss_fn)
             metrics = [loss_fn, ] + metrics
@@ -108,18 +110,30 @@ class SLModel(nn.Module):
         batch_logs = MetricLogs(metrics)
         # Set the model to eval mode
         self.eval()
+        preds = []
+        targets = []
         for step in range(validation_steps):
             x, target = next(val_generator)
-            b_metrics = self.validate_on_batch(x, target, metrics)
+            b_metrics, b_preds = self.validate_on_batch(x, target, metrics)
             batch_logs.update_logs(metrics, b_metrics)
-        return {metric.__name__: batch_logs.average(metric) for metric in metrics}
+            if len(np_metrics):
+                preds.append(b_preds)
+                targets.append(target)
+        # Compute the np preds over the whole prediction set
+        torch_metric_vals = {metric.__name__: batch_logs.average(metric) for metric in metrics}
+        # No-op if np_metrics is not given
+        preds = np.concatenate(preds, axis=0)
+        targets = np.concatenate(targets, axis=0)
+        np_metric_vals = {metric.__name__: metric(preds, targets) for metric in np_metrics}
+        return {**torch_metric_vals, **np_metric_vals}
 
     def fit_generator(self, generator, steps_per_epoch, epochs, optimizer,
                       loss_fn, validation_generator=None, validation_steps=0,
-                      metrics=(), callbacks=(), initial_epoch=0):
+                      metrics=(), np_metrics=(), callbacks=(), initial_epoch=0):
         self.cast_model_to_cuda()
         optimizers = standardize_list_input(optimizer)
         metrics = standardize_list_input(metrics)
+        np_metrics = standardize_list_input(np_metrics)
         loss_fn = self.compile_loss(loss_fn)
         # Register the model with each callback
         [callback.set_model(self) for callback in callbacks]
@@ -174,12 +188,12 @@ class SLModel(nn.Module):
             # Check if we need to run validation
             if run_validation:
                 val_metrics = self.validate_generator(
-                    validation_generator, validation_steps, metrics=([loss_fn] + metrics))
+                    validation_generator, validation_steps, metrics=([loss_fn] + metrics), np_metrics=np_metrics)
                 print("\tValidation Loss: ", val_metrics['loss'])
                 for metric_name, metric_score in val_metrics.items():
                     print("\tValidation %s: " % metric_name, metric_score)
                 # Log the loss and metrics
-                val_metric_funcs = [loss_fn] + metrics
+                val_metric_funcs = [loss_fn] + metrics + np_metrics
                 val_scores = [val_metrics[metric_func.__name__]
                               for metric_func in val_metric_funcs]
                 val_logs.update_logs(val_metric_funcs, val_scores)
