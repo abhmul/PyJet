@@ -76,7 +76,7 @@ class Conv(nn.Module):
 
     def forward(self, inputs):
         # Expect inputs as BatchSize x Filters x Length1 x ... x LengthN
-        return self.conv_layers(inputs)
+        return self.unfix_input(self.conv_layers(self.fix_input(inputs)))
 
     def __str__(self):
         return "%r" % self.conv_layers

@@ -18,7 +18,7 @@ def build_fully_connected(input_size, output_size, use_bias=True, activation='li
         layer_input = input_size if i == 0 else output_size
         layer.add_module(name="fullyconnected-%s" % i, module=nn.Linear(layer_input, output_size, bias=use_bias))
         if activation != "linear":
-            layer.add_module(name="{}-{}".format(activation, i), module=DPCNN.activations[activation]())
+            layer.add_module(name="{}-{}".format(activation, i), module=utils.get_activation_type(activation)())
         if batchnorm:
             layer.add_module(name="batchnorm-%s" % i, module=nn.BatchNorm1d(output_size))
         if dropout:

@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from .. import backend as J
-import functions as L
+from . import functions as L
 
 
 class Identity(nn.Module):
@@ -69,34 +69,39 @@ class SequenceInput(nn.Module):
         return self.__descriptor + "(%r)" % self.layer
 
 
-class MaskedInput(nn.Module):
-    """
-    Wrapper for a layer that takes in sequences of variable length as inputs that have
-    been padded. This wrapper will take as input a padded torch tensor where the sequence
-    length varies along the first dimension of each sample as well as a list of lengths of
-    each sequence in the batch. The layer will pass the input through the layer then mask
-    the padded regions of the output of the layer to cut the gradient.
-    The wrapper requires that sequence lengths are not modified when passed through the layer.
-    """
-
-    def __init__(self, layer=Identity, mask_value=0.):
-        super(MaskedInput, self).__init__()
-        self.layer = layer
-        self.mask_value = mask_value
-        self.masker = None
-        self.__descriptor = "MaskedInput(mask_value=%s)" % self.mask_value
-        logging.info("Wrapping layer with %s: %r" % (self.__descriptor, self.layer))
-
-    def forward(self, x, seq_lens):
-        if self.masker is None or x.size() != self.masker.size():
-            self.masker = J.zeros(*x.size()).byte()
-        x = self.layer(x)
-        # Create the mask
-
-        return x.masked_fill_(Variable(self.masker), self.mask_value)
-
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        return self.__descriptor + "(%r)" % self.layer
+# class MaskedInput(nn.Module):
+#     """
+#     Wrapper for a layer that takes in sequences of variable length as inputs that have
+#     been padded. This wrapper will take as input a padded torch tensor where the sequence
+#     length varies along the first dimension of each sample as well as a list of lengths of
+#     each sequence in the batch. The layer will pass the input through the layer then mask
+#     the padded regions of the output of the layer to cut the gradient.
+#     The wrapper requires that sequence lengths are not modified when passed through the layer.
+#     """
+#
+#     def __init__(self, layer=Identity, mask_value=0.):
+#         super(MaskedInput, self).__init__()
+#         self.layer = layer
+#         if mask_value == 'min':
+#             self.mask_value_factory = torch.min
+#         else:
+#             self.mask_value_factory = lambda x: Variable(mask_value)
+#         self.mask_value = mask_value
+#         self.masker = None
+#         self.mask_valuer = None
+#         self.__descriptor = "MaskedInput(mask_value=%s)" % self.mask_value
+#         logging.info("Wrapping layer with %s: %r" % (self.__descriptor, self.layer))
+#
+#     def forward(self, x, seq_lens):
+#         if self.masker is None or x.size() != self.masker.size():
+#             self.masker = J.zeros(*x.size()).byte()
+#             self.mask_valuerz = J.zeros(*x.size()).byte()
+#         x = self.layer(x)
+#         # Create the mask
+#         return xVariable(self.masker), self.mask_value_factory(x).data[0])
+#
+#     def __str__(self):
+#         return repr(self)
+#
+#     def __repr__(self):
+#         return self.__descriptor + "(%r)" % self.layer
