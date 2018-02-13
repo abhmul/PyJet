@@ -129,6 +129,28 @@ class GlobalAveragePooling1D(nn.Module):
         return self.__class__.__name__ + "()"
 
 
+class SequenceGlobalAveragePooling1D(nn.Module):
+
+    def __init__(self):
+        super(SequenceGlobalAveragePooling1D, self).__init__()
+
+        # Logging
+        logging.info("Creating layer: {}".format(str(self)))
+
+    def forward(self, x):
+        # The input comes in as B x Li x E
+        return torch.stack([torch.mean(seq, dim=0) for seq in x])
+
+    def reset_parameters(self):
+        pass
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        return self.__class__.__name__ + "()"
+
+
 class KMaxPooling1D(nn.Module):
 
     def __init__(self, k):
