@@ -114,3 +114,51 @@ class Flatten(nn.Module):
     def reset_parameters(self):
         pass
 
+
+class Lambda(nn.Module):
+    """Wraps arbitrary expression as a `Module` object. The input function must
+    have a self argument first!
+    # Examples
+
+   ```python
+        # add a x -> x^2 layer
+        layer = Lambda(lambda self, x: x ** 2))
+    ```
+    ```python
+        # add a layer that returns the concatenation
+        # of the positive part of the input and
+        # the opposite of the negative part
+        def antirectifier(self, x):
+            x = self.fc(x)
+            x -= torch.mean(x, dim=1, keepdim=True)
+            pos = F.relu(x)
+            neg = F.relu(-x)
+            return torch.cat([pos, neg], dim=1)
+
+        layer = Lambda(antirectifier, fc=Linear(256, 128))
+    ```
+
+    # Arguments
+        forward: The function to be evaluated. Should take self (the lambda object) as first argument
+        layers: optional dictionary of keyword arguments that map layer names to already initialized layers.
+          These layers will be accessible in the forward function by using 'self.[LAYER_NAME]', replacing
+          [LAYER_NAME] for whatever the name of the layer you want to access is.
+    """
+    def __init__(self, forward, **layers):
+        super(Lambda, self).__init__()
+        for layer_name in layers:
+            setattr(self, layer_name, layers[layer_name])
+        self.layer_names = list(layers.keys())
+        self.forward_func = forward
+        self.string = "Lambda: [" + " ".join("%r" % getattr(self, layer_name) for layer_name in self.layer_names) + "]"
+
+    def __str__(self):
+        return self.string
+
+    def forward(self, *args, **kwargs):
+        return self.forward_func(self, *args, **kwargs)
+
+    def reset_parameters(self):
+        for layer_name in self.layer_names:
+            getattr(self, layer_name).reset_parameters()
+
