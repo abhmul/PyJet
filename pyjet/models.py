@@ -20,14 +20,21 @@ def standardize_list_input(inputs):
 # I planned this out right
 class SLModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self, torch_module=None):
         super(SLModel, self).__init__()
         self.to_cuda = J.use_cuda
         self.loss_in = None
         self.aux_loss = []
+        self.torch_module = torch_module
+        if torch_module is not None:
+            self.forward_func = self.torch_module.forward
+        else:
+            self.forward_func = None
 
     def forward(self, *inputs, **kwargs):
-        raise NotImplementedError
+        if self.forward_func is not None:
+            return self.forward_func(self, *inputs, **kwargs)
+        raise NotImplementedError()
 
     def cast_input_to_torch(self, x, volatile=False):
         return Variable(J.Tensor(x), volatile=volatile)
