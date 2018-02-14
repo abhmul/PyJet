@@ -26,21 +26,18 @@ class SLModel(nn.Module):
         self.loss_in = None
         self.aux_loss = []
         self.torch_module = torch_module
-        if torch_module is not None:
-            self.forward_func = self.torch_module.forward
-        else:
-            self.forward_func = None
 
     def forward(self, *inputs, **kwargs):
-        if self.forward_func is not None:
-            return self.forward_func(self, *inputs, **kwargs)
+        if self.torch_module is not None:
+            self.loss_in = self.torch_module.forward(*inputs, **kwargs)
+            return self.loss_in
         raise NotImplementedError()
 
     def cast_input_to_torch(self, x, volatile=False):
-        return Variable(J.Tensor(x), volatile=volatile)
+        return Variable(J.from_numpy(x), volatile=volatile)
 
     def cast_target_to_torch(self, y, volatile=False):
-        return Variable(J.LongTensor(y), volatile=volatile)
+        return Variable(J.from_numpy(y), volatile=volatile)
 
     def cast_output_to_numpy(self, preds):
         return preds.data.cpu().numpy()
@@ -137,7 +134,8 @@ class SLModel(nn.Module):
 
     def fit_generator(self, generator, steps_per_epoch, epochs, optimizer,
                       loss_fn, validation_generator=None, validation_steps=0,
-                      metrics=(), np_metrics=(), callbacks=(), initial_epoch=0):
+                      metrics=(), np_metrics=(), callbacks=(), initial_epoch=0,
+                      verbose=1):
         self.cast_model_to_cuda()
         optimizers = standardize_list_input(optimizer)
         metrics = standardize_list_input(metrics)
@@ -158,9 +156,10 @@ class SLModel(nn.Module):
         for epoch in range(initial_epoch, epochs):
             # Put the model in train mode
             self.train()
-            print("Epoch {curr}/{total}".format(curr=epoch + 1, total=epochs))
+            if verbose > 0:
+                print("Epoch {curr}/{total}".format(curr=epoch + 1, total=epochs))
             # Setup the progress bar
-            progbar = ProgBar()
+            progbar = ProgBar(verbosity=verbose)
             # Setup the batch logs
             batch_logs = MetricLogs([loss_fn] + metrics)
             # Run the callbacks

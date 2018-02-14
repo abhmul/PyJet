@@ -175,7 +175,8 @@ class ProgBar(object):
         self.update_stats([prefix + func.__name__ for func in funcs], values)
 
     def update_bar(self):
-        self.tqdm.set_postfix(self.postfix)
+        if self.verbosity > 0:
+            self.tqdm.set_postfix(self.postfix)
 
     def __call__(self, high):
         if self.verbosity > 0:

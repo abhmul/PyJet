@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 
 def topk_accuracy(output, target, topk):
     """Computes the precision@k for the specified values of k
@@ -32,4 +33,27 @@ def topk_accuracy(output, target, topk):
 
 
 def accuracy(output, target):
-    return topk_accuracy(output, target, topk=1)
+    # Expect output and target to be B x 1 or B x C or target can be B (with ints from 0 to C-1)
+    assert output.dim() == 2, "Output should be a 2-dimensional tensor"
+    total = target.size(0)
+    assert output.size(0) == total, "Outputs and targets should have the same number of samples"
+    # Turn it into a 1d class encoding
+    if target.dim() == 2:
+        if target.size(1) > 1:
+            raise NotImplementedError("Multiclass with 2d targets is not impelemented yet")
+        target = target.squeeze(1).long()
+
+    # Change the output to have two cols if it only has 1
+    if output.size(1) == 1:
+        # Want to consider the 0.5 case
+        output = (output >= 0.5).float()
+        output = torch.cat([1 - output, output], dim=1)
+
+    # Compute the accuracy
+    _, predicted = torch.max(output, 1)
+    correct = (predicted == target).float().sum(0)
+    return correct / total
+
+
+def accuracy_with_logits(output, target):
+    return accuracy(F.sigmoid(output), target)
