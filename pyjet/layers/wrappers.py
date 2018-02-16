@@ -75,6 +75,28 @@ class SequenceInput(nn.Module):
         return self.__descriptor + "(%r)" % self.layer
 
 
+class TimeDistributed(nn.Module):
+
+    def __init__(self, layer):
+        super(TimeDistributed, self).__init__()
+        self.layer = layer
+        logging.info("TimeDistributing %r layer" % self.layer)
+
+    def forward(self, x):
+        x, seq_lens = L.pack_sequences(x)  # B*Li x I
+        x = self.layer(x)  # B*Li x O
+        x = L.unpack_sequences(x, seq_lens)
+        return x
+
+    def reset_paramaters(self):
+        self.layer.reset_parameters()
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        return "TimeDistributed" + "(%r)" % self.layer
+
 # class MaskedInput(nn.Module):
 #     """
 #     Wrapper for a layer that takes in sequences of variable length as inputs that have

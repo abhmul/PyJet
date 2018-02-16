@@ -6,3 +6,4 @@ from .recurrent import *
 from .pooling import *
 from .merge import *
 from .wrappers import *
+from .attentional import *
