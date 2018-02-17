@@ -45,7 +45,10 @@ class RNN(nn.Module):
     def forward(self, x):
         x, states = self.rnn_layers(x)
         if not self.return_sequences:
-            x = x[:, -1]
+            if self.bidirectional:
+                x = torch.cat([x[:, -1, :self.output_size], x[:, 0, self.output_size:]], dim=2)
+            else:
+                x = x[:, -1]
         if self.return_state:
             return x, states
         return x

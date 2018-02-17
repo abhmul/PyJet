@@ -19,7 +19,7 @@ class Identity(nn.Module):
     def forward(self, x):
         return x
 
-    def reset_paramaters(self):
+    def reset_parameters(self):
         pass
 
     def __repr__(self):
@@ -65,7 +65,7 @@ class SequenceInput(nn.Module):
             x = [self.dropout(sample.unsqueeze(0)).squeeze(0) for sample in x]
         return x
 
-    def reset_paramaters(self):
+    def reset_parameters(self):
         pass
 
     def __str__(self):
@@ -88,7 +88,7 @@ class TimeDistributed(nn.Module):
         x = L.unpack_sequences(x, seq_lens)
         return x
 
-    def reset_paramaters(self):
+    def reset_parameters(self):
         self.layer.reset_parameters()
 
     def __str__(self):
