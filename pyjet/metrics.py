@@ -52,7 +52,7 @@ def accuracy(output, target):
     # Compute the accuracy
     _, predicted = torch.max(output, 1)
     correct = (predicted == target).float().sum(0)
-    return correct / total
+    return (correct / total) * 100.
 
 
 def accuracy_with_logits(output, target):
