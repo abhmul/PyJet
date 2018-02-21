@@ -46,7 +46,7 @@ class RNN(nn.Module):
         x, states = self.rnn_layers(x)
         if not self.return_sequences:
             if self.bidirectional:
-                x = torch.cat([x[:, -1, :self.output_size], x[:, 0, self.output_size:]], dim=2)
+                x = torch.cat([x[:, -1, :self.output_size], x[:, 0, self.output_size:]], dim=-1)
             else:
                 x = x[:, -1]
         if self.return_state:
