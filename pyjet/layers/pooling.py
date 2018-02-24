@@ -37,9 +37,18 @@ class StridedPool(nn.Module):
         output_size = (input_size - self.dilation * (self.kernel_size - 1) + 2 * self.padding - 1) // self.stride + 1
         return output_size
 
+    def calc_input_size(self, output_size):
+        return (output_size - 1) * self.stride - 2 * self.padding + 1 + self.dilation * (self.kernel_size - 1)
+
     def forward(self, x):
-        # Expect x as BatchSize x Filters x Length1 x ... x LengthN
-        return self.pool(x)
+        # Expect x as BatchSize x Length1 x ... x LengthN x Filters
+        return self.unfix_input(self.pool(self.fix_input(x)))
+
+    def fix_input(self, x):
+        raise NotImplementedError()
+
+    def unfix_input(self, x):
+        raise NotImplementedError()
 
     def reset_parameters(self):
         pass
@@ -51,13 +60,27 @@ class StridedPool(nn.Module):
         return str(self)
 
 
-class MaxPooling1D(StridedPool):
+class Strided1D(StridedPool):
+
+    def fix_input(self, inputs):
+        return inputs.transpose(1, 2)
+
+    def unfix_input(self, outputs):
+        return outputs.transpose(1, 2)
+
+
+class MaxPooling1D(Strided1D):
 
     def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
         super(MaxPooling1D, self).__init__("max1d", kernel_size, stride=stride, padding=padding, dilation=dilation)
 
 
-class AveragePooling1D(StridedPool):
+class SequenceMaxPooling1D(MaxPooling1D):
+
+    def forward(self, seq_inputs):
+        return [super(SequenceMaxPooling1D, self).forward(sample.unsqueeze(0)).squeeze(0) for sample in seq_inputs]
+
+class AveragePooling1D(Strided1D):
 
     def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
         super(AveragePooling1D, self).__init__("avg1d", kernel_size, stride=stride, padding=padding, dilation=dilation)
