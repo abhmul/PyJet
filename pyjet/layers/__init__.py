@@ -8,3 +8,4 @@ from .pooling import *
 from .merge import *
 from .wrappers import *
 from .attentional import *
+from .noise import *
