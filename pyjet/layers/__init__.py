@@ -1,3 +1,4 @@
+from .layer import *
 from . import functions
 from . import layer_utils
 from .core import *

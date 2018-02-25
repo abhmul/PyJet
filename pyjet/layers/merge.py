@@ -2,13 +2,11 @@ import logging
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from . import layer_utils as utils
-from . import functions as L
+from . import layer
 
 
-class Concatenate(nn.Module):
+class Concatenate(layer.Layer):
     """Layer that concatenates a list of inputs.
     It takes as input a list of tensors,
     all of the same shape except for the concatenation dim, the
@@ -24,7 +22,7 @@ class Concatenate(nn.Module):
         return torch.cat(seq, dim=dim)
 
 
-class Add(nn.Module):
+class Add(layer.Layer):
     """Layer that adds a list of inputs.
     It takes as input a list of tensors,
     all of the same shape, and returns

@@ -3,7 +3,8 @@ from functools import partialmethod
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
+from . import layer
 
 
 def build_rnn(rnn_type, input_size, output_size, num_layers=1, bidirectional=False,
@@ -19,7 +20,7 @@ def build_rnn(rnn_type, input_size, output_size, num_layers=1, bidirectional=Fal
     return layer
 
 
-class RNN(nn.Module):
+class RNN(layer.Layer):
 
     layer_constructors = {'gru': nn.GRU, 'lstm': nn.LSTM, "tanh_simple": partialmethod(nn.RNN, nonlinearity='tanh'),
                           "relu_simple": partialmethod(nn.RNN, nonlinearity='relu')}
@@ -63,8 +64,6 @@ class RNN(nn.Module):
         return ("%r\n\treturn_sequences={}, return_state={}" % self.rnn_layers).format(self.return_sequences,
                                                                                        self.return_state)
 
-    def __repr__(self):
-        return str(self)
 
 
 class SimpleRNN(RNN):

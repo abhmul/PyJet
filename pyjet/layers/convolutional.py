@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+from . import layer
 from . import layer_utils as utils
 from . import functions as L
 
@@ -37,7 +38,7 @@ def build_conv(dimensions, input_size, output_size, kernel_size, stride=1, paddi
     return layer
 
 
-class Conv(nn.Module):
+class Conv(layer.Layer):
 
     layer_constructors = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}
     bn_constructors = {1: nn.BatchNorm1d, 2: nn.BatchNorm2d, 3: nn.BatchNorm3d}
@@ -103,9 +104,6 @@ class Conv(nn.Module):
     def __str__(self):
         return "%r" % self.conv_layers
 
-    def __repr__(self):
-        return str(self)
-
 
 class Conv1D(Conv):
     def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
@@ -163,6 +161,7 @@ class SequenceConv1D(Conv1D):
         if self.input_batchnorm is not None:
             self.input_batchnorm.reset_parameters()
         super().reset_parameters()
+
 
 class Conv2D(Conv):
     def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,

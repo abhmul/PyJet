@@ -3,6 +3,7 @@ import logging
 import torch
 import torch.nn as nn
 
+from . import layer
 from . import functions as L
 
 
@@ -13,7 +14,7 @@ def build_strided_pool(name, kernel_size, stride=None, padding=1, dilation=1):
     return layer
 
 
-class StridedPool(nn.Module):
+class StridedPool(layer.Layer):
 
     pool_funcs = {"max1d": nn.MaxPool1d,
                   "max2d": nn.MaxPool2d,
@@ -54,14 +55,8 @@ class StridedPool(nn.Module):
     def unfix_input(self, x):
         raise NotImplementedError()
 
-    def reset_parameters(self):
-        pass
-
     def __str__(self):
         return "%r" % self.pool
-
-    def __repr__(self):
-        return str(self)
 
 
 class Strided1D(StridedPool):
@@ -84,13 +79,14 @@ class SequenceMaxPooling1D(MaxPooling1D):
     def forward(self, seq_inputs):
         return [super(SequenceMaxPooling1D, self).forward(sample.unsqueeze(0)).squeeze(0) for sample in seq_inputs]
 
+
 class AveragePooling1D(Strided1D):
 
     def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
         super(AveragePooling1D, self).__init__("avg1d", kernel_size, stride=stride, padding=padding, dilation=dilation)
 
 
-class GlobalMaxPooling1D(nn.Module):
+class GlobalMaxPooling1D(layer.Layer):
 
     def __init__(self):
         super(GlobalMaxPooling1D, self).__init__()
@@ -102,17 +98,8 @@ class GlobalMaxPooling1D(nn.Module):
         # The input comes in as B x L x E
         return torch.max(x, dim=1)[0]
 
-    def reset_parameters(self):
-        pass
 
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        return self.__class__.__name__ + "()"
-
-
-class SequenceGlobalMaxPooling1D(nn.Module):
+class SequenceGlobalMaxPooling1D(layer.Layer):
 
     def __init__(self):
         super(SequenceGlobalMaxPooling1D, self).__init__()
@@ -124,17 +111,8 @@ class SequenceGlobalMaxPooling1D(nn.Module):
         # The input comes in as B x Li x E
         return torch.stack([torch.max(seq, dim=0)[0] for seq in x])
 
-    def reset_parameters(self):
-        pass
 
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        return self.__class__.__name__ + "()"
-
-
-class GlobalAveragePooling1D(nn.Module):
+class GlobalAveragePooling1D(layer.Layer):
 
     def __init__(self):
         super(GlobalAveragePooling1D, self).__init__()
@@ -146,17 +124,8 @@ class GlobalAveragePooling1D(nn.Module):
         # The input comes in as B x L x E
         return torch.mean(x, dim=1)
 
-    def reset_parameters(self):
-        pass
 
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        return self.__class__.__name__ + "()"
-
-
-class SequenceGlobalAveragePooling1D(nn.Module):
+class SequenceGlobalAveragePooling1D(layer.Layer):
 
     def __init__(self):
         super(SequenceGlobalAveragePooling1D, self).__init__()
@@ -168,17 +137,8 @@ class SequenceGlobalAveragePooling1D(nn.Module):
         # The input comes in as B x Li x E
         return torch.stack([torch.mean(seq, dim=0) for seq in x])
 
-    def reset_parameters(self):
-        pass
 
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        return self.__class__.__name__ + "()"
-
-
-class KMaxPooling1D(nn.Module):
+class KMaxPooling1D(layer.Layer):
 
     def __init__(self, k):
         super(KMaxPooling1D, self).__init__()
@@ -191,11 +151,6 @@ class KMaxPooling1D(nn.Module):
         # B x L x E
         return L.kmax_pooling(x, 1, self.k)
 
-    def reset_parameters(self):
-        pass
-
     def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
         return self.__class__.__name__ + "(k=%s)" % self.k
+

@@ -3,6 +3,7 @@ import logging
 import torch
 import torch.nn as nn
 
+from . import layer
 from . import functions as L
 from . import wrappers
 from . import core
@@ -11,7 +12,7 @@ from . import pooling
 from ..backend import flatten
 
 
-class ContextAttention(nn.Module):
+class ContextAttention(layer.Layer):
 
     def __init__(self, input_size, output_size=1, activation='tanh', batchnorm=False, padded_input=True, dropout=0.0):
         super(ContextAttention, self).__init__()
@@ -41,11 +42,8 @@ class ContextAttention(nn.Module):
     def __str__(self):
         return "%r" % self.pool
 
-    def __repr__(self):
-        return str(self)
 
-
-class ContextMaxPool1D(nn.Module):
+class ContextMaxPool1D(layer.Layer):
 
     def __init__(self, input_size, output_size=1, activation='linear', batchnorm=False, padded_input=True, dropout=0.0):
         super(ContextMaxPool1D, self).__init__()
@@ -71,6 +69,3 @@ class ContextMaxPool1D(nn.Module):
 
     def __str__(self):
         return "%r" % self.pool
-
-    def __repr__(self):
-        return str(self)

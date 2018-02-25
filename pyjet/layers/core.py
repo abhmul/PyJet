@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from . import layer
 from . import layer_utils as utils
 from . import functions as L
 from .. import backend as J
@@ -30,7 +31,7 @@ def build_fully_connected(input_size, output_size, use_bias=True, activation='li
     return layer
 
 
-class FullyConnected(nn.Module):
+class FullyConnected(layer.Layer):
     """Just your regular fully-connected NN layer.
         `FullyConnected` implements the operation:
         `output = activation(dot(input, kernel) + bias)`
@@ -90,11 +91,8 @@ class FullyConnected(nn.Module):
     def __str__(self):
         return "%r" % self.layers
 
-    def __repr__(self):
-        return str(self)
 
-
-class Flatten(nn.Module):
+class Flatten(layer.Layer):
     """Flattens the input. Does not affect the batch size.
         # Example
         ```python
@@ -114,11 +112,8 @@ class Flatten(nn.Module):
     def forward(self, x):
         return L.flatten(x)
 
-    def reset_parameters(self):
-        pass
 
-
-class Lambda(nn.Module):
+class Lambda(layer.Layer):
     """Wraps arbitrary expression as a `Module` object. The input function must
     have a self argument first!
     # Examples
@@ -166,7 +161,7 @@ class Lambda(nn.Module):
             getattr(self, layer_name).reset_parameters()
 
 
-class MaskedInput(nn.Module):
+class MaskedInput(layer.Layer):
     """
     A layer that takes in sequences of variable length as inputs that have
     been padded. This layer will take as input a padded torch tensor where the sequence
@@ -196,10 +191,4 @@ class MaskedInput(nn.Module):
         return x.masked_fill(mask, mask_value)
 
     def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
         return self.__descriptor
-
-    def reset_parameters(self):
-        pass
