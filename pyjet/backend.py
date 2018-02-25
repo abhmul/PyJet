@@ -52,8 +52,17 @@ def standardize(x):
 def from_numpy(x):
     return torch.from_numpy(x).cuda() if use_cuda else torch.from_numpy(x)
 
+
 def to_numpy(x):
     return x.cpu().numpy() if use_cuda else x.numpy()
+
+
+def arange(start, end=None, step=1, out=None):
+    if end is None:
+        x = torch.arange(0, start, step=step, out=out)
+    else:
+        x = torch.arange(start, end, step=step, out=out)
+    return x.cuda() if use_cuda else x
 
 
 # use_cuda = False

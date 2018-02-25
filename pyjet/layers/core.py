@@ -1,10 +1,13 @@
 import logging
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 from . import layer_utils as utils
 from . import functions as L
+from .. import backend as J
 
 # TODO Create abstract layers for layers with params that includes weight regularizers
 
@@ -162,3 +165,41 @@ class Lambda(nn.Module):
         for layer_name in self.layer_names:
             getattr(self, layer_name).reset_parameters()
 
+
+class MaskedInput(nn.Module):
+    """
+    A layer that takes in sequences of variable length as inputs that have
+    been padded. This layer will take as input a padded torch tensor where the sequence
+    length varies along the first dimension of each sample as well as a LongTensor of lengths of
+    each sequence in the batch. The layer will mask the padded regions of the output of the layer
+    to cut the gradient.
+
+    # Arguments
+        mask_value: The value to mask the padded input with. If passed "min" instead of a value, this will
+          mask to whatever the smallest value in the batch is minus 1 (usefuly if passing to a max pooling layer).
+          This defaults to 0.
+    """
+
+    def __init__(self, mask_value=0.):
+        super(MaskedInput, self).__init__()
+        if mask_value == 'min':
+            self.mask_value_factory = lambda x: torch.min(x.data) - 1.
+        else:
+            self.mask_value_factory = lambda x: mask_value
+        self.mask_value = mask_value
+        self.__descriptor = "MaskedInput(mask_value=%s)" % self.mask_value
+        logging.info("Creating layer: %s" % self.__descriptor)
+
+    def forward(self, x, seq_lens):
+        mask = Variable((J.arange(x.size(1)).long().view(1, -1, 1) >= seq_lens.view(-1, 1, 1)), requires_grad=False)
+        mask_value = self.mask_value_factory(x)
+        return x.masked_fill(mask, mask_value)
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        return self.__descriptor
+
+    def reset_parameters(self):
+        pass

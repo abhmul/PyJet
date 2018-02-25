@@ -34,7 +34,11 @@ class StridedPool(nn.Module):
         self.pool = build_strided_pool(pool_type, kernel_size, stride=stride, padding=padding, dilation=dilation)
 
     def calc_output_size(self, input_size):
-        output_size = (input_size - self.dilation * (self.kernel_size - 1) + 2 * self.padding - 1) // self.stride + 1
+        """
+        NOTE: This is designed for pytorch longtensors, if you pass an integer, make sure to cast it back to an
+        integer as python3 will perform float division on it
+        """
+        output_size = (input_size - self.dilation * (self.kernel_size - 1) + 2 * self.padding - 1) / self.stride + 1
         return output_size
 
     def calc_input_size(self, output_size):
