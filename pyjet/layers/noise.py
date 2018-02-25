@@ -13,6 +13,7 @@ class GaussianNoise1D(layer.Layer):
         self.noise = Variable(J.zeros(1, 1, size), requires_grad=False)
         self.std = std
         self.__descriptor = "{name}(size={size}, std={std})".format(name=self.__class__.__name__, size=size, std=std)
+        logging.info("Creating layer %r" % self)
 
     def forward(self, x):
         if not self.training:
