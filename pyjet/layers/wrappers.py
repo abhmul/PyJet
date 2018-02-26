@@ -4,6 +4,7 @@ import torch.nn as nn
 
 from . import layer
 from . import functions as L
+from . import core
 
 
 class Identity(layer.Layer):
@@ -15,6 +16,9 @@ class Identity(layer.Layer):
 
     def forward(self, x):
         return x
+
+    def calc_output_size(self, input_size):
+        return input_size
 
 
 # Singleton Identity layer
@@ -78,3 +82,21 @@ class TimeDistributed(layer.Layer):
 
     def __str__(self):
         return "TimeDistributed" + "(%r)" % self.layer
+
+
+class MaskedLayer(layer.Layer):
+
+    def __init__(self, layer, mask_value=0.0):
+        super(MaskedLayer, self).__init__()
+        self.layer = layer
+        self.masker = core.MaskedInput(mask_value=mask_value)
+
+    def forward(self, x, seq_lens):
+        x = self.masker(x, seq_lens)
+        x = self.layer(x)
+        seq_lens = self.layer.calc_output_size(seq_lens)
+        return x, seq_lens
+
+    def reset_parameters(self):
+        self.layer.reset_parameters()
+

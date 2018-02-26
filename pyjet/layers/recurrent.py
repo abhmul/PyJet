@@ -43,6 +43,9 @@ class RNN(layer.Layer):
         self.rnn_layers = build_rnn(rnn_type, input_size, output_size, num_layers=num_layers,
                                     bidirectional=bidirectional, input_dropout=input_dropout, dropout=dropout)
 
+    def calc_output_size(self, input_size):
+        return input_size
+
     def forward(self, x):
         x, states = self.rnn_layers(x)
         if not self.return_sequences:

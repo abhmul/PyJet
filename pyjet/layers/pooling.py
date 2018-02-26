@@ -94,6 +94,9 @@ class GlobalMaxPooling1D(layer.Layer):
         # Logging
         logging.info("Creating layer: {}".format(str(self)))
 
+    def calc_output_size(self, input_size):
+        return input_size / input_size
+
     def forward(self, x):
         # The input comes in as B x L x E
         return torch.max(x, dim=1)[0]
@@ -106,6 +109,9 @@ class SequenceGlobalMaxPooling1D(layer.Layer):
 
         # Logging
         logging.info("Creating layer: {}".format(str(self)))
+
+    def calc_output_size(self, input_size):
+        return input_size / input_size
 
     def forward(self, x):
         # The input comes in as B x Li x E
@@ -120,6 +126,9 @@ class GlobalAveragePooling1D(layer.Layer):
         # Logging
         logging.info("Creating layer: {}".format(str(self)))
 
+    def calc_output_size(self, input_size):
+        return input_size / input_size
+
     def forward(self, x):
         # The input comes in as B x L x E
         return torch.mean(x, dim=1)
@@ -132,6 +141,9 @@ class SequenceGlobalAveragePooling1D(layer.Layer):
 
         # Logging
         logging.info("Creating layer: {}".format(str(self)))
+
+    def calc_output_size(self, input_size):
+        return input_size / input_size
 
     def forward(self, x):
         # The input comes in as B x Li x E
@@ -146,6 +158,9 @@ class KMaxPooling1D(layer.Layer):
 
         # Logging
         logging.info("Creating layer: {}".format(str(self)))
+
+    def calc_output_size(self, input_size):
+        return self.k * input_size / input_size
 
     def forward(self, x):
         # B x L x E
