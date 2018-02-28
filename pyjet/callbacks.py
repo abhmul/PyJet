@@ -353,6 +353,6 @@ class LRScheduler(Callback):
         new_lr = self.schedule(epoch)
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = new_lr
-        if self.verbose > 1:
+        if self.verbose > 0:
             print('\nEpoch %05d: LRScheduler setting lr to %s.' % (epoch + 1, new_lr))
 
