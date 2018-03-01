@@ -103,10 +103,11 @@ class SLModel(nn.Module):
             torch.cuda.empty_cache()
         return metric_vals, preds
 
-    def validate_generator(self, val_generator, validation_steps, loss_fn=None, metrics=(), np_metrics=()):
+    def validate_generator(self, val_generator, validation_steps, loss_fn=None, metrics=(), np_metrics=(),
+                           verbose=0):
         self.cast_model_to_cuda()
-        metrics = list(metrics)
-        np_metrics = list(np_metrics)
+        metrics = standardize_list_input(metrics)
+        np_metrics = standardize_list_input(np_metrics)
         if loss_fn is not None:
             loss_fn = self.compile_loss(loss_fn)
             metrics = [loss_fn, ] + metrics
@@ -116,7 +117,8 @@ class SLModel(nn.Module):
         self.eval()
         preds = []
         targets = []
-        for step in range(validation_steps):
+        progbar = ProgBar(verbosity=verbose)
+        for step in progbar(validation_steps):
             x, target = next(val_generator)
             b_metrics, b_preds = self.validate_on_batch(x, target, metrics)
             batch_logs.update_logs(metrics, b_metrics)
