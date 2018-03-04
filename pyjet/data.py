@@ -191,19 +191,32 @@ class NpDataset(Dataset):
     """
     # TODO define the kfold method for NpDataset
 
-    def __init__(self, x, y=None):
+    def __init__(self, x, y=None, ids=None):
         super(NpDataset, self).__init__()
 
         self.x = x
         self.y = y
-        self.output_labels = self.y is not None
-        if self.output_labels:
+        self.ids = ids
+        self.output_labels = self.has_labels
+        if self.has_labels:
             assert self.x.shape[0] == self.y.shape[0], ("Data and labels must have same number of" +
                                                         "samples. X has shape ", x.shape[0],
                                                         " and Y has shape ", y.shape[0], ".")
+        if self.has_ids:
+            assert self.x.shape[0] == self.ids.shape[0], ("Data and ids must have same number of" +
+                                                          "samples. X has shape ", x.shape[0],
+                                                          " and ids has shape ", ids.shape[0], ".")
 
     def __len__(self):
         return self.x.shape[0]
+
+    @property
+    def has_ids(self):
+        return self.ids is not None
+
+    @property
+    def has_labels(self):
+        return self.y is not None
 
     def toggle_labels(self):
         self.output_labels = not self.output_labels
@@ -239,7 +252,6 @@ class NpDataset(Dataset):
         val_split = np.concatenate(val_splits, axis=0)
         return train_split, val_split
 
-
     def get_split_indicies(self, split, shuffle, seed, stratified):
         if stratified:
             assert self.output_labels, "Data must have labels to split stratified."
@@ -267,6 +279,8 @@ class NpDataset(Dataset):
             if seed is not None:
                 np.random.seed(seed)
             indicies = np.random.permutation(len(self))
+        else:
+            indicies = np.arange(len(self))
 
         for i in range(k):
             split = 1.0 / k
@@ -274,14 +288,14 @@ class NpDataset(Dataset):
             split_start = int(i * split * len(self))
             split_end = int((i+1) * split * len(self))
             val_split = slice(split_start, split_end)
-            train_split_a = slice(0, split_start)
-            train_split_b = slice(split_end, None)
+            train_split_a = indicies[0:split_start]
+            train_split_b = indicies[split_end:]
             if shuffle:
                 train_split_a = indicies[train_split_a]
                 train_split_b = indicies[train_split_b]
                 val_split = indicies[val_split]
 
-            yield train_split_a, train_split_b, val_split
+            yield np.concatenate([train_split_a, train_split_b]), val_split
 
     def validation_split(self, split=0.2, shuffle=False, seed=None, stratified=False):
         """
@@ -310,9 +324,11 @@ class NpDataset(Dataset):
         """
         train_split, val_split = self.get_split_indicies(split, shuffle, seed, stratified)
         train_data = NpDataset(self.x[train_split],
-                               None if self.y is None else self.y[train_split])
+                               y=None if not self.has_labels else self.y[train_split],
+                               ids=None if not self.has_ids else self.ids[train_split])
         val_data = NpDataset(self.x[val_split],
-                             None if self.y is None else self.y[val_split])
+                             y=None if not self.has_labels else self.y[val_split],
+                             ids=None if not self.has_ids else self.ids[val_split])
         return train_data, val_data
 
     def kfold(self, k=5, shuffle=False, seed=None):
@@ -338,12 +354,13 @@ class NpDataset(Dataset):
             destroy_self flag to True if you can afford the split, but want to
             reclaim the memory from the parent dataset.
         """
-        for train_split_a, train_split_b, val_split in self.get_kfold_indices(k, shuffle, seed):
-            train_data = NpDataset(np.concatenate([self.x[train_split_a], self.x[train_split_b]]),
-                                   None if not self.output_labels else np.concatenate(
-                                       [self.y[train_split_a], self.y[train_split_b]]))
+        for train_split, val_split in self.get_kfold_indices(k, shuffle, seed):
+            train_data = NpDataset(self.x[train_split],
+                                   y=None if not self.has_labels else self.y[train_split],
+                                   ids=None if not self.has_ids else self.ids[train_split])
             val_data = NpDataset(self.x[val_split],
-                                 None if not self.output_labels else self.y[val_split])
+                                 y=None if not self.has_labels else self.y[val_split],
+                                 ids=None if not self.has_ids else self.ids[val_split])
             yield train_data, val_data
 
 
