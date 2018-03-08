@@ -86,10 +86,16 @@ class TimeDistributed(layer.Layer):
 
 class MaskedLayer(layer.Layer):
 
-    def __init__(self, layer=Identity, mask_value=0.0):
+    def __init__(self, layer=Identity, mask_value=0.0, dim=1):
         super(MaskedLayer, self).__init__()
         self.layer = layer
-        self.masker = core.MaskedInput(mask_value=mask_value)
+        self.dim = dim
+        if dim == 1:
+            self.masker = core.MaskedInput(mask_value=mask_value)
+        elif dim == 2:
+            self.masker = core.MaskedInput2D(mask_value=mask_value)
+        else:
+            raise NotImplementedError("dim=%s" % dim)
         logging.info("Masking {} layer with mask_value={}".format(self.layer, mask_value))
 
     def forward(self, x, seq_lens):

@@ -182,11 +182,45 @@ class MaskedInput(layer.Layer):
         else:
             self.mask_value_factory = lambda x: mask_value
         self.mask_value = mask_value
-        self.__descriptor = "MaskedInput(mask_value=%s)" % self.mask_value
+        self.__descriptor = self.__class__.__name__ + "(mask_value=%s)" % self.mask_value
         logging.info("Creating layer: %s" % self.__descriptor)
 
     def forward(self, x, seq_lens):
         mask = Variable((J.arange(x.size(1)).long().view(1, -1, 1) >= seq_lens.view(-1, 1, 1)), requires_grad=False)
+        mask_value = self.mask_value_factory(x)
+        return x.masked_fill(mask, mask_value)
+
+    def __str__(self):
+        return self.__descriptor
+
+
+class MaskedInput2D(MaskedInput):
+    """
+    A layer that takes in sequences of variable length as inputs that have
+    been padded. This layer will take as input a padded torch tensor where the sequence
+    length varies along the first dimension of each sample as well as a LongTensor of lengths of
+    each sequence in the batch. The layer will mask the padded regions of the output of the layer
+    to cut the gradient.
+
+    # Arguments
+        mask_value: The value to mask the padded input with. If passed "min" instead of a value, this will
+          mask to whatever the smallest value in the batch is minus 1 (usefuly if passing to a max pooling layer).
+          This defaults to 0.
+    """
+    def forward(self, x, seq_lens):
+        # seq_lens are of shape B x 2
+        # x is of shape B x H x W x F
+
+        # shape is B x H x 1 x 1
+        seq_lens_heights = seq_lens.view(-1, 2, 1, 1)[:, 0:1]
+        seq_lens_widths = seq_lens.view(-1, 1, 2, 1)[:, :, 1:2]
+        mask_height = Variable((J.arange(x.size(1)).long().view(1, -1, 1, 1) >= seq_lens_heights),
+                               requires_grad=False)
+        # shape is B x 1 x W x 1
+        mask_width = Variable((J.arange(x.size(2)).long().view(1, 1, -1, 1) >= seq_lens_widths),
+                               requires_grad=False)
+        # shape is B x H x W x 1
+        mask = mask_height | mask_width
         mask_value = self.mask_value_factory(x)
         return x.masked_fill(mask, mask_value)
 
