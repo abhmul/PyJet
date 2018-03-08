@@ -14,6 +14,50 @@ def build_strided_pool(name, kernel_size, stride=None, padding=1, dilation=1):
     return layer
 
 
+class UpSampling(layer.Layer):
+
+    def __init__(self, size=None, scale_factor=None, mode='nearest'):
+        super(UpSampling, self).__init__()
+        self.upsampling = nn.Upsample(size=size, scale_factor=scale_factor, mode=mode)
+        self.size = self.upsampling.size
+        self.scale_factor = self.upsampling.scale_factor
+        self.mode = self.upsampling.mode
+
+    def calc_output_size(self, input_size):
+        if self.size is not None:
+            return self.size
+        else:
+            return input_size * self.scale_factor
+
+    def calc_input_size(self, output_size):
+        if self.size is not None:
+            raise ValueError("Cannot know input size if deterministic output size is used")
+        else:
+            return output_size / self.scale_factor
+
+    def forward(self, x):
+        # Expect x as BatchSize x Length1 x ... x LengthN x Filters
+        return self.unfix_input(self.upsampling(self.fix_input(x)))
+
+    def fix_input(self, x):
+        raise NotImplementedError()
+
+    def unfix_input(self, x):
+        raise NotImplementedError()
+
+    def __str__(self):
+        return "%r" % self.upsampling
+
+
+class UpSampling2D(UpSampling):
+
+    def fix_input(self, inputs):
+        return inputs.permute(0, 3, 1, 2).contiguous()
+
+    def unfix_input(self, outputs):
+        return outputs.permute(0, 2, 3, 1).contiguous()
+
+
 class StridedPool(layer.Layer):
 
     pool_funcs = {"max1d": nn.MaxPool1d,
@@ -68,6 +112,15 @@ class Strided1D(StridedPool):
         return outputs.transpose(1, 2)
 
 
+class Strided2D(StridedPool):
+
+    def fix_input(self, inputs):
+        return inputs.permute(0, 3, 1, 2).contiguous()
+
+    def unfix_input(self, outputs):
+        return outputs.permute(0, 2, 3, 1).contiguous()
+
+
 class MaxPooling1D(Strided1D):
 
     def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
@@ -84,6 +137,11 @@ class AveragePooling1D(Strided1D):
 
     def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
         super(AveragePooling1D, self).__init__("avg1d", kernel_size, stride=stride, padding=padding, dilation=dilation)
+
+
+class MaxPooling2D(Strided2D):
+    def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
+        super(MaxPooling2D, self).__init__("max2d", kernel_size, stride=stride, padding=padding, dilation=dilation)
 
 
 class GlobalMaxPooling1D(layer.Layer):

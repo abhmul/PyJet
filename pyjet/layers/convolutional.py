@@ -174,6 +174,12 @@ class Conv2D(Conv):
                                      input_batchnorm=input_batchnorm, batchnorm=batchnorm,
                                      input_dropout=input_dropout, dropout=dropout)
 
+    def fix_input(self, inputs):
+        return inputs.permute(0, 3, 1, 2).contiguous()
+
+    def unfix_input(self, outputs):
+        return outputs.permute(0, 2, 3, 1).contiguous()
+
 
 class Conv3D(Conv):
     def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
