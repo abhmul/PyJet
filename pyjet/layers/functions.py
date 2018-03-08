@@ -82,6 +82,29 @@ def pad_numpy_to_length(x, length):
     return x
 
 
+def pad_numpy_to_shape(x, shape):
+    pad_diffs = [length - x_len for x_len, length in zip(x.shape, shape)]
+    pad_args = [(0, pad_diff) for pad_diff in pad_diffs]
+    return np.pad(x, pad_args, mode='constant')
+
+
+def create2d_mask(x, seq_lens):
+    # seq_lens are of shape B x 2
+    # x is of shape B x H x W x F
+
+    # shape is B x H x 1 x 1
+    seq_lens_heights = seq_lens.view(-1, 2, 1, 1)[:, 0:1]
+    seq_lens_widths = seq_lens.view(-1, 1, 2, 1)[:, :, 1:2]
+    mask_height = Variable((J.arange(x.size(1)).long().view(1, -1, 1, 1) >= seq_lens_heights),
+                           requires_grad=False)
+    # shape is B x 1 x W x 1
+    mask_width = Variable((J.arange(x.size(2)).long().view(1, 1, -1, 1) >= seq_lens_widths),
+                           requires_grad=False)
+    # shape is B x H x W x 1
+    mask = mask_height | mask_width
+    return mask
+
+
 def seq_softmax(x, return_padded=False):
     # x comes in as B x Li x F, we compute the softmax over Li for each F
     x, lens = pad_sequences(x, pad_value=-float('inf'))  # B x L x F

@@ -210,17 +210,7 @@ class MaskedInput2D(MaskedInput):
     def forward(self, x, seq_lens):
         # seq_lens are of shape B x 2
         # x is of shape B x H x W x F
-
-        # shape is B x H x 1 x 1
-        seq_lens_heights = seq_lens.view(-1, 2, 1, 1)[:, 0:1]
-        seq_lens_widths = seq_lens.view(-1, 1, 2, 1)[:, :, 1:2]
-        mask_height = Variable((J.arange(x.size(1)).long().view(1, -1, 1, 1) >= seq_lens_heights),
-                               requires_grad=False)
-        # shape is B x 1 x W x 1
-        mask_width = Variable((J.arange(x.size(2)).long().view(1, 1, -1, 1) >= seq_lens_widths),
-                               requires_grad=False)
-        # shape is B x H x W x 1
-        mask = mask_height | mask_width
+        mask = L.create2d_mask(x, seq_lens)
         mask_value = self.mask_value_factory(x)
         return x.masked_fill(mask, mask_value)
 

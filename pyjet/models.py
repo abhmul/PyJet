@@ -23,7 +23,8 @@ class SLModel(nn.Module):
     def __init__(self, torch_module=None):
         super(SLModel, self).__init__()
         self.to_cuda = J.use_cuda
-        self.loss_in = None
+        self.loss_in = []
+        self.loss_kwargs = {}
         self.aux_loss = []
         self.torch_module = torch_module
 
@@ -51,7 +52,7 @@ class SLModel(nn.Module):
     def compile_loss(self, loss_fn):
         def loss(preds, targets):
             # Preds are not used, just works as metric)
-            return loss_fn(self.loss_in, targets)
+            return loss_fn(*standardize_list_input(self.loss_in), targets, **self.loss_kwargs)
         return loss
 
     def train_on_batch(self, x, target, optimizers, loss_fn, metrics=()):
@@ -240,8 +241,24 @@ class SLModel(nn.Module):
         progbar = ProgBar(verbosity=verbose)
         for step in progbar(prediction_steps):
             x = next(generator)
-            preds.append(self.predict_on_batch(x))
-        return np.concatenate(preds, axis=0)
+            batch_preds = self.predict_on_batch(x)
+            # Check to make sure the ndim is the same
+            assert batch_preds.ndim == preds[-1].ndim
+            preds.append(batch_preds)
+
+        # Supports variable sized predictions - get the biggest possible shape
+        num_preds = sum(len(batch_preds) for batch_preds in preds)
+        max_shape = [num_preds] + [max(preds[n].shape[i] for n in range(len(preds))) for i in range(1, preds[0].ndim)]
+        full_preds = np.zeros(max_shape, dtype=preds[0].dtype)
+        # Fill in the predictions array
+        cur_pred_ind = 0
+        for batch_preds in preds:
+            preds_slice = (slice(cur_pred_ind, len(batch_preds)),) + tuple(
+                slice(batch_preds.shape[i]) for i in range(1, batch_preds.ndim))
+            full_preds[preds_slice] = batch_preds
+            cur_pred_ind += len(batch_preds)
+
+        return full_preds
 
     def save_state(self, save_path):
         return torch.save(self.state_dict(), save_path)
