@@ -84,7 +84,7 @@ def pad_numpy_to_length(x, length):
 
 def pad_numpy_to_shape(x, shape):
     pad_diffs = [length - x_len for x_len, length in zip(x.shape, shape)]
-    pad_args = [(0, pad_diff) for pad_diff in pad_diffs]
+    pad_args = [(0, pad_diff) for pad_diff in pad_diffs] + [(0, 0)] * (x.ndim - len(shape))
     return np.pad(x, pad_args, mode='constant')
 
 

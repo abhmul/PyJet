@@ -199,16 +199,16 @@ class NpDataset(Dataset):
         self.ids = ids
         self.output_labels = self.has_labels
         if self.has_labels:
-            assert self.x.shape[0] == self.y.shape[0], ("Data and labels must have same number of" +
-                                                        "samples. X has shape ", x.shape[0],
-                                                        " and Y has shape ", y.shape[0], ".")
+            assert len(self.x) == len(self.y), ("Data and labels must have same number of" +
+                                                "samples. X has shape ", len(x),
+                                                " and Y has shape ", len(y), ".")
         if self.has_ids:
-            assert self.x.shape[0] == self.ids.shape[0], ("Data and ids must have same number of" +
-                                                          "samples. X has shape ", x.shape[0],
-                                                          " and ids has shape ", ids.shape[0], ".")
+            assert len(self.x) == len(self.ids), ("Data and ids must have same number of" +
+                                                  "samples. X has shape ", len(x),
+                                                  " and ids has shape ", len(ids), ".")
 
     def __len__(self):
-        return self.x.shape[0]
+        return len(self.x)
 
     @property
     def has_ids(self):

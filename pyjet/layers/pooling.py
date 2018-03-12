@@ -72,6 +72,8 @@ class StridedPool(layer.Layer):
         padding = (kernel_size - 1) // 2 if padding == 'same' else padding
         self.pool_type = pool_type
         self.kernel_size = kernel_size
+        if stride is None:
+            stride = kernel_size
         self.stride = stride
         self.padding = padding
         self.dilation = dilation
