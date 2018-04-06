@@ -8,6 +8,8 @@ from __future__ import print_function
 from .. import backend as J
 from .. import data
 import logging
+from collections import deque
+import warnings
 
 import numpy as np
 import re
@@ -134,7 +136,8 @@ class ImageDataGenerator(data.BatchGenerator):
                  rescale=None,
                  preprocessing_function=None,
                  seed=None,
-                 data_format='channels_last'):
+                 data_format='channels_last',
+                 save_inverses=False):
         # Copy the steps per epoch and batch size if it has one
         if hasattr(generator, "steps_per_epoch") and hasattr(generator, "batch_size"):
             super(ImageDataGenerator, self).__init__(
@@ -159,6 +162,15 @@ class ImageDataGenerator(data.BatchGenerator):
         self.vertical_flip = vertical_flip
         self.rescale = rescale
         self.preprocessing_function = preprocessing_function
+        self.save_inverses = save_inverses
+        self.inverse_transforms = deque()
+
+        if self.channel_shift_range != 0 and self.save_inverses:
+            warnings.warn("Image augmenter cannot invert channel shifting")
+        if self.augment_masks and self.save_inverses:
+            warnings.warn("Be careful how you invert images. Masks are augmented in batch first before images!")
+        if (self.samplewise_center or self.samplewise_std_normalization) and self.save_inverses:
+            warnings.warn("Image augmenter cannot invert samplewise mean and std normalization!")
 
         if data_format not in {'channels_last', 'channels_first'}:
             raise ValueError('`data_format` should be `"channels_last"` (channel after row and '
@@ -193,10 +205,11 @@ class ImageDataGenerator(data.BatchGenerator):
         if self.labels:
             x, y = next(self._generator)
             assert(x.shape[0] == y.shape[0])
+            x, y = x.copy(), y.copy()
         else:
-            x = next(self._generator)
+            x = next(self._generator).copy()
         # Create the seeds
-        seeds = np.random.randint(10000, size=x.shape[0])
+        seeds = np.random.randint(2 ** 32, size=x.shape[0])
         # Augment the masks if we have them and are supposed to
         if self.labels and self.augment_masks:
             for i in range(y.shape[0]):
@@ -206,6 +219,7 @@ class ImageDataGenerator(data.BatchGenerator):
         # transform the image memory efficiently
         for i in range(x.shape[0]):
             x[i] = self.standardize(self.random_transform(x[i], seed=seeds[i]))
+            # augmenting image
 
         if self.labels:
             return x, y
@@ -326,26 +340,84 @@ class ImageDataGenerator(data.BatchGenerator):
             transform_matrix = zoom_matrix if transform_matrix is None else np.dot(
                 transform_matrix, zoom_matrix)
 
+        inverse_transform = None
         if transform_matrix is not None:
             h, w = x.shape[img_row_axis], x.shape[img_col_axis]
             transform_matrix = transform_matrix_offset_center(
                 transform_matrix, h, w)
             x = apply_transform(x, transform_matrix, img_channel_axis,
                                 fill_mode=self.fill_mode, cval=self.cval)
+            inverse_transform = np.linalg.inv(transform_matrix)
+
 
         if self.channel_shift_range != 0:
             x = random_channel_shift(x,
                                      self.channel_shift_range,
                                      img_channel_axis)
+
+        horizontal_flipped = False
         if self.horizontal_flip:
             if np.random.random() < 0.5:
                 x = flip_axis(x, img_col_axis)
+                horizontal_flipped = True
 
+
+        vertically_flipped = False
         if self.vertical_flip:
             if np.random.random() < 0.5:
                 x = flip_axis(x, img_row_axis)
+                vertically_flipped = True
 
         # If we added a dimension for the channel, remove it
         if remove_channel_axis:
             x = np.squeeze(x, axis=img_channel_axis)
+
+        # If we want to save inverses, push onto the inverse queue
+        if self.save_inverses:
+            self.inverse_transforms.appendleft((inverse_transform, horizontal_flipped, vertically_flipped))
         return x
+
+    def apply_inversion_transform(self, x):
+        """Invert a random augment of a single image tensor.
+                # Arguments
+                    x: 3D tensor, single image.
+                # Returns
+                    The orignal image before the random transformed version of the input (same shape).
+                """
+        # x is a single image, so it doesn't have image number at index 0
+        img_row_axis = self.row_axis - 1
+        img_col_axis = self.col_axis - 1
+        img_channel_axis = self.channel_axis - 1
+
+        # Check if x has any channels and is the right dimensions
+        remove_channel_axis = False
+        if x.ndim == 2:
+            remove_channel_axis = True
+            x = np.expand_dims(x, axis=img_channel_axis)
+        elif x.ndim != 3:
+            raise ValueError(
+                "Dim of input image must be 2 or 3, given ", x.ndim)
+
+        # Pop from the queue
+        inverse_transform, horizontally_flipped, vertically_flipped = self.inverse_transforms.pop()
+        # Undo any flipping
+        if vertically_flipped:
+            x = flip_axis(x, img_row_axis)
+
+        if horizontally_flipped:
+            x = flip_axis(x, img_col_axis)
+
+        # Apply the inverse transform
+        x = apply_transform(x, inverse_transform, img_channel_axis, fill_mode=self.fill_mode, cval=self.cval)
+
+        return x
+
+    def invert_images(self, x_images):
+        # assert len(x_images) == len(self.inverse_transforms), "Have %s images, but only %s inverse transforms" % (len(x_images), len(self.inverse_transforms))
+        if len(x_images) != len(self.inverse_transforms):
+            warnings.warn("Have %s images, but only %s inverse transforms. " \
+                          "Using first transforms and discarding rest" % (len(x_images), len(self.inverse_transforms)))
+        inverted = np.stack([self.apply_inversion_transform(x) for x in x_images], axis=0)
+        self.inverse_transforms = deque()
+        return inverted
+

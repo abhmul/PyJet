@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from . import layer
 from . import functions as L
+from .. import backend as J
 
 
 def build_strided_pool(name, kernel_size, stride=None, padding=1, dilation=1):
@@ -25,7 +26,7 @@ class UpSampling(layer.Layer):
 
     def calc_output_size(self, input_size):
         if self.size is not None:
-            return self.size
+            return J.LongTensor(self.size)
         else:
             return input_size * self.scale_factor
 
