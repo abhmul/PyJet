@@ -323,10 +323,10 @@ class NpDataset(Dataset):
             reclaim the memory from the parent dataset.
         """
         train_split, val_split = self.get_split_indicies(split, shuffle, seed, stratified)
-        train_data = NpDataset(self.x[train_split],
+        train_data = self.__class__(self.x[train_split],
                                y=None if not self.has_labels else self.y[train_split],
                                ids=None if not self.has_ids else self.ids[train_split])
-        val_data = NpDataset(self.x[val_split],
+        val_data = self.__class__(self.x[val_split],
                              y=None if not self.has_labels else self.y[val_split],
                              ids=None if not self.has_ids else self.ids[val_split])
         return train_data, val_data
