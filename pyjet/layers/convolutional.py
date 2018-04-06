@@ -29,10 +29,10 @@ def build_conv(dimensions, input_size, output_size, kernel_size, stride=1, paddi
                          module=Conv.layer_constructors[dimensions](layer_input, output_size, kernel_size,
                                                                     stride=stride, padding=padding, dilation=dilation,
                                                                     groups=groups, bias=use_bias))
-        if activation != "linear":
-            layer.add_module(name="{}-{}".format(activation, i), module=utils.get_activation_type(activation)())
         if batchnorm:
             layer.add_module(name="batchnorm-%s" % i, module=Conv.bn_constructors[dimensions](output_size))
+        if activation != "linear":
+            layer.add_module(name="{}-{}".format(activation, i), module=utils.get_activation_type(activation)())
         if dropout:
             layer.add_module(name="dropout-%s" % i, module=nn.Dropout(dropout))
     return layer
