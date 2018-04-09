@@ -7,7 +7,8 @@ epsilon = 1e-11
 # Optimization for casting things to cuda tensors
 
 # Set up the use of cuda if available
-use_cuda = torch.cuda.is_available()
+# use_cuda = torch.cuda.is_available()
+use_cuda = False
 
 def cudaFloatTensor(x):
     return torch.FloatTensor(x).cuda()
@@ -63,6 +64,18 @@ def arange(start, end=None, step=1, out=None):
     else:
         x = torch.arange(start, end, step=step, out=out)
     return x.cuda() if use_cuda else x
+
+def to_sparse(x):
+    """ converts dense tensor x to sparse format """
+    x_typename = torch.typename(x).split('.')[-1]
+    sparse_tensortype = getattr(torch.sparse, x_typename)
+
+    indices = torch.nonzero(x)
+    if len(indices.shape) == 0:  # if all elements are zeros
+        return sparse_tensortype(*x.shape)
+    indices = indices.t()
+    values = x[tuple(indices[i] for i in range(indices.shape[0]))]
+    return sparse_tensortype(indices, values, x.size())
 
 
 # use_cuda = False

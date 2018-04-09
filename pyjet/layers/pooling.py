@@ -16,12 +16,13 @@ def build_strided_pool(name, kernel_size, stride=None, padding=1, dilation=1):
 
 class UpSampling(layer.Layer):
 
-    def __init__(self, size=None, scale_factor=None, mode='nearest'):
+    def __init__(self, scale_factor=None, size=None, mode='nearest', fix_inputs=True):
         super(UpSampling, self).__init__()
         self.upsampling = nn.Upsample(size=size, scale_factor=scale_factor, mode=mode)
         self.size = self.upsampling.size
         self.scale_factor = self.upsampling.scale_factor
         self.mode = self.upsampling.mode
+        self.fix_inputs = fix_inputs
 
     def calc_output_size(self, input_size):
         if self.size is not None:
@@ -36,8 +37,11 @@ class UpSampling(layer.Layer):
             return output_size / self.scale_factor
 
     def forward(self, x):
-        # Expect x as BatchSize x Length1 x ... x LengthN x Filters
-        return self.unfix_input(self.upsampling(self.fix_input(x)))
+        if self.fix_inputs:
+            # Expect x as BatchSize x Length1 x ... x LengthN x Filters
+            return self.unfix_input(self.upsampling(self.fix_input(x)))
+        else:
+            return self.upsampling(x)
 
     def fix_input(self, x):
         raise NotImplementedError()
@@ -67,7 +71,8 @@ class StridedPool(layer.Layer):
                   "avg2d": nn.AvgPool2d,
                   "avg3d": nn.AvgPool3d}
 
-    def __init__(self, pool_type, kernel_size, stride=None, padding='same', dilation=1):
+    def __init__(self, pool_type, kernel_size, stride=None, padding='same', dilation=1,
+                 fix_inputs=True):
         super(StridedPool, self).__init__()
         padding = (kernel_size - 1) // 2 if padding == 'same' else padding
         self.pool_type = pool_type
@@ -77,6 +82,7 @@ class StridedPool(layer.Layer):
         self.stride = stride
         self.padding = padding
         self.dilation = dilation
+        self.fix_inputs = fix_inputs
 
         self.pool = build_strided_pool(pool_type, kernel_size, stride=stride, padding=padding, dilation=dilation)
 
@@ -93,7 +99,10 @@ class StridedPool(layer.Layer):
 
     def forward(self, x):
         # Expect x as BatchSize x Length1 x ... x LengthN x Filters
-        return self.unfix_input(self.pool(self.fix_input(x)))
+        if self.fix_inputs:
+            return self.unfix_input(self.pool(self.fix_input(x)))
+        else:
+            return self.pool(x)
 
     def fix_input(self, x):
         raise NotImplementedError()
@@ -142,8 +151,9 @@ class AveragePooling1D(Strided1D):
 
 
 class MaxPooling2D(Strided2D):
-    def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
-        super(MaxPooling2D, self).__init__("max2d", kernel_size, stride=stride, padding=padding, dilation=dilation)
+    def __init__(self, kernel_size, stride=None, padding='same', dilation=1, fix_inputs=True):
+        super(MaxPooling2D, self).__init__("max2d", kernel_size, stride=stride, padding=padding, dilation=dilation,
+                                           fix_inputs=fix_inputs)
 
 
 class GlobalMaxPooling1D(layer.Layer):

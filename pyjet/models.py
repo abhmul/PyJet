@@ -172,37 +172,39 @@ class SLModel(nn.Module):
         return output_dict
 
     def make_batch_logs(self):
-        return BatchLogs("loss",
-                         *(self._loss_functions.keys() if len(self._loss_functions) > 1 else []),
-                         *self._metric_functions.keys())
+        log_names = ["loss"] + \
+                    [*self._loss_functions.keys()] if len(self._loss_functions) > 1 else [] + \
+                    [*self._metric_functions.keys()]
+        return BatchLogs(*log_names)
 
     def make_training_logs(self, run_validation=False):
-        names = ["loss", *(self._loss_functions.keys() if len(self._loss_functions) > 1 else []),
-                 *self._metric_functions.keys()]
+        log_names = ["loss"] + \
+                    [*self._loss_functions.keys()] if len(self._loss_functions) > 1 else [] + \
+                    [*self._metric_functions.keys()]
         if run_validation:
-            names += ["val_" + name for name in names]
-        return BatchLogs(names)
+            log_names += ["val_" + name for name in log_names]
+        return BatchLogs(*log_names)
 
     def train_on_batch(self, x, target):
         self.cast_model_to_cuda()
         self.train()
         # Cast inputs to a torch variable
         torch_x = self.cast_input_to_torch(x)
-        torch_target = self.cast_target_to_torch(target)
         # Make the prediction
         torch_preds = self(torch_x)
+        del torch_x
+        if J.use_cuda: torch.cuda.empty_cache()
         # Calculate the loss
+        torch_target = self.cast_target_to_torch(target)
         loss, loss_dict = self.loss(torch_target)
         # Update the weights
-        [optimizer.zero_grad() for optimizer in self._optimizers]
+        [optimizer.zero_grad() for optimizer in self._optimizers.values()]
         loss.backward()
-        [optimizer.step() for optimizer in self._optimizers]
+        [optimizer.step() for optimizer in self._optimizers.values()]
         # Calculate the metrics
         metric_scores = self.run_metrics(torch_target)
         # Reset the optimizer
         self.zero_grad()
-        # Clean up some variables
-        del torch_x
         del torch_target
         del torch_preds
         if J.use_cuda:

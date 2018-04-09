@@ -46,7 +46,7 @@ class Conv(layer.Layer):
     def __init__(self, dimensions, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
                  use_bias=True, input_activation='linear', activation='linear', num_layers=1,
                  input_batchnorm=False, batchnorm=False,
-                 input_dropout=0.0, dropout=0.0):
+                 input_dropout=0.0, dropout=0.0, fix_inputs=True):
         super(Conv, self).__init__()
         # Catch any bad padding inputs (NOTE: this does not catch negative padding)
         if padding != 'same' and not isinstance(padding, int):
@@ -70,6 +70,7 @@ class Conv(layer.Layer):
         self.num_layers = num_layers
         self.input_batchnorm = input_batchnorm
         self.batchnorm = batchnorm
+        self.fix_inputs = fix_inputs
 
         # Build the layers
         self.conv_layers = build_conv(dimensions, input_size, output_size, kernel_size,
@@ -92,7 +93,9 @@ class Conv(layer.Layer):
 
     def forward(self, inputs):
         # Expect inputs as BatchSize x Length1 x ... x LengthN x Filters
-        return self.unfix_input(self.conv_layers(self.fix_input(inputs)))
+        if self.fix_inputs:
+            return self.unfix_input(self.conv_layers(self.fix_input(inputs)))
+        return self.conv_layers(inputs)
 
     def reset_parameters(self):
         for layer in self.conv_layers:
@@ -167,12 +170,13 @@ class Conv2D(Conv):
     def __init__(self, input_size, output_size, kernel_size, stride=1, padding='same', dilation=1, groups=1,
                  use_bias=True, input_activation='linear', activation='linear', num_layers=1,
                  input_batchnorm=False, batchnorm=False,
-                 input_dropout=0.0, dropout=0.0):
+                 input_dropout=0.0, dropout=0.0,
+                 fix_inputs=True):
         super(Conv2D, self).__init__(2, input_size, output_size, kernel_size, stride=stride, padding=padding,
                                      dilation=dilation, groups=groups, use_bias=use_bias,
                                      input_activation=input_activation, activation=activation, num_layers=num_layers,
                                      input_batchnorm=input_batchnorm, batchnorm=batchnorm,
-                                     input_dropout=input_dropout, dropout=dropout)
+                                     input_dropout=input_dropout, dropout=dropout, fix_inputs=fix_inputs)
 
     def fix_input(self, inputs):
         return inputs.permute(0, 3, 1, 2).contiguous()

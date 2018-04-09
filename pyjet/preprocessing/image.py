@@ -200,8 +200,11 @@ class ImageDataGenerator(data.BatchGenerator):
         # Augment the masks if we have them and are supposed to
         if self.labels and self.augment_masks:
             for i in range(y.shape[0]):
-                y[i] = self.standardize(self.random_transform(
-                    y[i], seed=seeds[i]))
+                if isinstance(y, dict):
+                    for key in y:
+                        y[key] = self.standardize(self.random_transform(y[key], seed=seeds[i]))
+                else:
+                    y[i] = self.standardize(self.random_transform(y[i], seed=seeds[i]))
 
         # transform the image memory efficiently
         for i in range(x.shape[0]):
