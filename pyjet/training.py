@@ -115,6 +115,7 @@ class BatchLogs(object):
 
     def update(self, update_dict):
         for name in update_dict.keys():
+            print(self.logs)
             self.logs[name].append(update_dict[name])
         self.last_logs.update(update_dict)
 
