@@ -1,5 +1,5 @@
 import warnings
-from functools import wraps
+import logging
 
 import numpy as np
 import torch
@@ -132,7 +132,7 @@ class SLModel(nn.Module):
         self.register_metric_function(new_metric_function)
 
     def register_loss_function(self, loss):
-        print("Calling register on %s" % loss.__name__)
+        logging.info("Calling register on %s" % loss.__name__)
         if loss.__name__ in self._metric_functions:
             raise ValueError("Cannot have a loss with the same name as metric {}".format(loss.__name__))
         self._loss_functions[loss.__name__] = loss
@@ -141,6 +141,7 @@ class SLModel(nn.Module):
         self._metric_functions.pop(loss.__name__)
 
     def register_metric_function(self, metric):
+        logging.info("Calling register on %s" % metric.__name__)
         if metric.__name__ in self._loss_functions:
             raise ValueError("Cannot have a loss with the same name as metric {}".format(metric.__name__))
         self._metric_functions[metric.__name__] = metric

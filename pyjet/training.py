@@ -96,7 +96,6 @@ class GeneratorEnqueuer(data.BatchGenerator):
 # A simple object for logging
 class BatchLogs(object):
     def __init__(self, *metric_names):
-        print(metric_names)
         self.logs = {name: [] for name in metric_names}
         self.last_logs = {name: None for name in metric_names}
 
@@ -115,7 +114,6 @@ class BatchLogs(object):
 
     def update(self, update_dict):
         for name in update_dict.keys():
-            print(self.logs)
             self.logs[name].append(update_dict[name])
         self.last_logs.update(update_dict)
 
