@@ -257,6 +257,7 @@ class SLModel(nn.Module):
         self.cast_model_to_cuda()
         # Register the model with each callback
         callbacks = CallbackList(callbacks)
+        callbacks.set_model(self)
         # Save whether we will need to run validation
         run_validation = (validation_steps > 0) and validation_data is not None
         # Set up the logs
