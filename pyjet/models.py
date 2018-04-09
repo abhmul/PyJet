@@ -149,8 +149,6 @@ class SLModel(nn.Module):
         self._metric_functions.pop(metric.__name__)
 
     def loss(self, targets):
-        print(self._loss_functions)
-        print(self.loss_in)
         output_dict = {loss_name: loss_fn( targets) for loss_name, loss_fn in self._loss_functions.items()}
         if not output_dict:
             return Variable(J.zeros(1)), {}
