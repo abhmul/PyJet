@@ -296,7 +296,7 @@ class SLModel(nn.Module):
 
             # Check if we need to run validation
             if run_validation:
-                val_scores = self.validate_generator(validation_data, steps=validation_steps)
+                val_scores = self.evaluate_generator(validation_data, steps=validation_steps)
                 # Append the "val_" to each of the val_metrics
                 val_scores = {"val_" + name: value for name, value in val_scores.items()}
                 # Update the progress bar
