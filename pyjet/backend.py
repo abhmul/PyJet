@@ -7,8 +7,8 @@ epsilon = 1e-11
 # Optimization for casting things to cuda tensors
 
 # Set up the use of cuda if available
-# use_cuda = torch.cuda.is_available()
-use_cuda = False
+use_cuda = torch.cuda.is_available()
+# use_cuda = False
 
 def cudaFloatTensor(x):
     return torch.FloatTensor(x).cuda()
