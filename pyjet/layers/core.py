@@ -186,9 +186,12 @@ class MaskedInput(layer.Layer):
         logging.info("Creating layer: %s" % self.__descriptor)
 
     def forward(self, x, seq_lens):
-        mask = Variable((J.arange(x.size(1)).long().view(1, -1, 1) >= seq_lens.view(-1, 1, 1)), requires_grad=False)
+        mask = Variable((J.arange(x.size(1)).long().view(1, -1) >= seq_lens.view(-1, 1)), requires_grad=False)
         mask_value = self.mask_value_factory(x)
-        return x.masked_fill(mask, mask_value)
+        batch_size, max_seq_len = mask.size(0), mask.size(1)
+        subdims = x.dim() - 2
+        # Will allow mask to be broadcasted to the shape of x
+        return x.masked_fill(mask.view(batch_size, max_seq_len, *([1]*subdims)), mask_value)
 
     def __str__(self):
         return self.__descriptor

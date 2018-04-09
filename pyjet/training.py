@@ -94,16 +94,17 @@ class GeneratorEnqueuer(data.BatchGenerator):
                 time.sleep(self.wait_time)
 
 # A simple object for logging
+class BatchLogs(object):
+    def __init__(self, *metric_names):
+        self.logs = {name: [] for name in metric_names}
+        self.last_logs = {name: None for name in metric_names}
 
+    @property
+    def metrics(self):
+        return list(self.logs.keys())
 
-class MetricLogs(object):
-    def __init__(self, metrics):
-        self.logs = {}
-        self._init_keys([metric.__name__ for metric in metrics])
-        self.metrics = metrics
-
-    def __len__(self):
-        return len(self.logs)
+    def __getitem__(self, item):
+        return self.logs[item]
 
     def items(self):
         return self.logs.items()
@@ -111,41 +112,66 @@ class MetricLogs(object):
     def values(self):
         return self.logs.values()
 
-    def __iter__(self):
-        return iter(self.logs)
+    def update(self, update_dict):
+        for name in update_dict.keys():
+            self.logs[name].append(update_dict[name])
+        self.last_logs.update(update_dict)
 
-    def _init_keys(self, metric_names):
-        for metric_name in metric_names:
-            self.logs[metric_name] = []
+    def average(self):
+        return {name: sum(self.logs[name]) / len(self.logs[name]) for name in self.metrics}
 
-    def _update_key(self, key, value):
-        self.logs[key].append(value)
 
-    def _update_keys(self, metric_names, scores):
-        for score, metric_name in zip(scores, metric_names):
-            self._update_key(metric_name, score)
 
-    def update_log(self, stat, value):
-        self._update_key(stat.__name__, value)
-
-    def update_logs(self, metrics, scores):
-        self._update_keys([metric.__name__ for metric in metrics], scores)
-
-    def average_key(self, key):
-        return sum(self.logs[key]) / len(self.logs[key])
-
-    def average(self, stat):
-        return self.average_key(stat.__name__)
-
-    def __getitem__(self, key):
-        return self.logs[key]
-
-    def get(self, key):
-        return self.logs.get(key)
-
-    # TODO figure out where this is ueds since its technically wrong
-    def keys(self):
-        return self.metrics
+# class MetricLogs(object):
+#     def __init__(self, metrics):
+#         self.logs = {}
+#         self._init_keys([metric.__name__ for metric in metrics])
+#         self.metrics = metrics
+#
+#     def __len__(self):
+#         return len(self.logs)
+#
+#     def items(self):
+#         return self.logs.items()
+#
+#     def values(self):
+#         return self.logs.values()
+#
+#     def __iter__(self):
+#         return iter(self.logs)
+#
+#     def _init_keys(self, metric_names):
+#         for metric_name in metric_names:
+#             self.logs[metric_name] = []
+#
+#     def _update_key(self, key, value):
+#         self.logs[key].append(value)
+#
+#     def _update_keys(self, metric_names, scores):
+#         for score, metric_name in zip(scores, metric_names):
+#             self._update_key(metric_name, score)
+#
+#     def update_log(self, stat, value):
+#         self._update_key(stat.__name__, value)
+#
+#     def update_logs(self, metrics, scores):
+#         self._update_keys([metric.__name__ for metric in metrics], scores)
+#
+#     def average_key(self, key):
+#         return sum(self.logs[key]) / len(self.logs[key])
+#
+#     def average(self, stat):
+#         return self.average_key(stat.__name__)
+#
+#     def __getitem__(self, key):
+#         return self.logs[key]
+#
+#     def get(self, key):
+#         return self.logs.get(key)
+#
+#     # TODO figure out where this is ueds since its technically wrong
+#     def keys(self):
+#         return self.metrics
 
 # A simple class for a progress bar
 
@@ -164,15 +190,9 @@ class ProgBar(object):
         self.stat_counts[name] += 1
         self.postfix[name] = self.stat_sums[name] / self.stat_counts[name]
 
-    def update_stat_from_func(self, func, val, prefix=""):
-        self.update_stat(prefix + func.__name__, val)
-
-    def update_stats(self, names, values):
-        for name, value in zip(names, values):
+    def update_stats(self, update_dict):
+        for name, value in update_dict.items():
             self.update_stat(name, value)
-
-    def update_stats_from_func(self, funcs, values, prefix=""):
-        self.update_stats([prefix + func.__name__ for func in funcs], values)
 
     def update_bar(self):
         if self.verbosity > 0:
