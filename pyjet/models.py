@@ -304,6 +304,9 @@ class SLModel(nn.Module):
                 # Update the progress bar
                 progbar.update_stats(val_scores)
                 progbar.update_bar()
+                # Print validation
+                for score_name in val_scores:
+                    print("\t", score_name, ":", val_scores[score_name])
                 # Update the training logs
                 training_logs.update(val_scores)
             # Run the callbacks
