@@ -173,14 +173,14 @@ class SLModel(nn.Module):
 
     def make_batch_logs(self):
         log_names = ["loss"] + \
-                    [*self._loss_functions.keys()] if len(self._loss_functions) > 1 else [] + \
-                    [*self._metric_functions.keys()]
+                    (list(self._loss_functions) if len(self._loss_functions) > 1 else []) + \
+                    list(self._metric_functions)
         return BatchLogs(*log_names)
 
     def make_training_logs(self, run_validation=False):
         log_names = ["loss"] + \
-                    [*self._loss_functions.keys()] if len(self._loss_functions) > 1 else [] + \
-                    [*self._metric_functions.keys()]
+                    (list(self._loss_functions) if len(self._loss_functions) > 1 else []) + \
+                    list(self._metric_functions)
         if run_validation:
             log_names += ["val_" + name for name in log_names]
         return BatchLogs(*log_names)
