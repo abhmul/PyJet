@@ -1,6 +1,11 @@
+import logging
 import threading
 import numpy as np
-from collections import namedtuple
+
+# For image dataset
+from skimage.transform import resize
+from skimage.io import imread
+from skimage.color import rgb2ycbcr, rgb2gray, gray2rgb
 
 # TODO Create a dataset for HDF5 and Torch Tensor
 
@@ -363,6 +368,54 @@ class NpDataset(Dataset):
                                  ids=None if not self.has_ids else self.ids[val_split])
             yield train_data, val_data
 
+
+class ImageDataset(NpDataset):
+    """
+        A Dataset that is built from a numpy array of filenames for images
+
+        # Arguments
+            x -- The input data as a numpy array of filenames
+            y -- The target data as a numpy array of labels (optional)
+        """
+
+    MODE2FUNC = {"rgb": lambda x: x, "ycbcr": rgb2ycbcr, "gray": lambda x: rgb2gray(x)[:, :, np.newaxis]}
+
+    def __init__(self, x, y=None, ids=None, img_size=None, mode="rgb"):
+        super(ImageDataset, self).__init__(x, y=y, ids=ids)
+        self.img_size = img_size
+        assert mode in ImageDataset.MODE2FUNC, "Invalid mode %s" % mode
+        self.mode = mode
+
+    @staticmethod
+    def load_img(path_to_img, img_size=None, mode="rgb"):
+        img = imread(path_to_img)
+        # Then its a grayscale image
+        if img.ndim == 2:
+            logging.info("Gray image?:", path_to_img)
+            img = gray2rgb(img)
+        # Cut out the alpha channel
+        img = img[:, :, :3]
+        img = ImageDataset.MODE2FUNC[mode](img)
+
+        orig_img_shape = img.shape[:2]
+        # Resize to the input size
+        if img_size is not None:
+            img = resize(img, img_size, mode='constant', preserve_range=True).astype(np.uint8)
+        return img, orig_img_shape
+
+    def create_batch(self, batch_indicies):
+        filenames = self.x[batch_indicies]
+        images = [self.load_img(path_to_img, img_size=self.img_size, mode=self.mode) for path_to_img in filenames]
+        # If variable image size, stack the images as numpy arrays otherwise create one large numpy array
+        if self.img_size is None:
+            x = [np.array(images, dtype='O'), ]
+        else:
+            x = [np.stack(images), ]
+
+        if self.output_labels:
+            return x, self.y[batch_indicies]
+        return x
+    
 
 class HDF5Dataset(Dataset):
 
