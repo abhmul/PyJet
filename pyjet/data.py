@@ -47,6 +47,17 @@ class Dataset(object):
         """
         raise NotImplementedError()
 
+    def flow(self, steps_per_epoch=None, batch_size=None, shuffle=True, seed=None):
+        """
+        This method creates a generator for the data.
+
+        Returns:
+            A DatasetGenerator with settings determined by inputs to this method that
+            generates batches made by this dataset
+        """
+        return DatasetGenerator(self, steps_per_epoch=steps_per_epoch, batch_size=batch_size,
+                                shuffle=shuffle, seed=seed)
+
     def validation_split(self, split=0.2, **kwargs):
         raise NotImplementedError()
 
@@ -408,9 +419,9 @@ class ImageDataset(NpDataset):
         images = [self.load_img(path_to_img, img_size=self.img_size, mode=self.mode) for path_to_img in filenames]
         # If variable image size, stack the images as numpy arrays otherwise create one large numpy array
         if self.img_size is None:
-            x = [np.array(images, dtype='O'), ]
+            x = np.array(images, dtype='O')
         else:
-            x = [np.stack(images), ]
+            x = np.stack(images)
 
         if self.output_labels:
             return x, self.y[batch_indicies]
