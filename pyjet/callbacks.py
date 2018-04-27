@@ -1,8 +1,10 @@
 import numpy as np
 import warnings
 try:
+    import matplotlib
     import matplotlib.pyplot as plt
 except ImportError:
+    matplotlib = None
     plt = None
 
 
@@ -163,6 +165,8 @@ class Plotter(Callback):
         self.block_on_end = block_on_end
         if self.plot_during_train:
             plt.ion()
+        else:
+            matplotlib.use('Agg')
         self.fig = plt.figure()
         self.title = "{} per Epoch".format(self.monitor)
         self.xlabel = "Epoch"
