@@ -1,11 +1,32 @@
 import logging
+import numpy as np
 
 from . import data
 
 
 class Augmenter(object):
 
-    def augment(self, batch):
+    def __init__(self, labels=True, augment_labels=False):
+        self.labels = labels
+        self.augment_labels = augment_labels
+
+    def _augment(self, batch):
+        # Split the batch if necessary
+        if self.labels:
+            x, y = batch
+            seed = np.random.randint(2 ** 32)
+            if self.augment_labels:
+                np.random.seed(seed)
+                y = self.augment(y)
+            np.random.seed(seed)
+            x = self.augment(x)
+            return x, y
+
+        else:
+            x = batch
+            return self.augment(x)
+
+    def augment(self, x):
         raise NotImplementedError()
 
     def __call__(self, generator):
@@ -27,4 +48,4 @@ class AugmenterGenerator(data.BatchGenerator):
         self.generator = generator
 
     def __next__(self):
-        return self.augmenter.augment(next(self.generator))
+        return self.augmenter._augment(next(self.generator))
