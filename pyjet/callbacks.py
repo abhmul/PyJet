@@ -161,7 +161,8 @@ class Plotter(Callback):
         self.plot_during_train = plot_during_train
         self.save_to_file = save_to_file
         self.block_on_end = block_on_end
-        plt.ion()
+        if self.plot_during_train:
+            plt.ion()
         self.fig = plt.figure()
         self.title = "{} per Epoch".format(self.monitor)
         self.xlabel = "Epoch"
@@ -174,7 +175,8 @@ class Plotter(Callback):
         self.y_val = []
 
     def on_train_end(self, train_logs=None, val_logs=None):
-        plt.ioff()
+        if self.plot_during_train:
+            plt.ioff()
         if self.block_on_end:
             plt.show()
         return
