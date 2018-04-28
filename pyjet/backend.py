@@ -65,6 +65,11 @@ def arange(start, end=None, step=1, out=None):
     return x.cuda() if use_cuda else x
 
 
+def rand(*sizes, out=None):
+    x = torch.rand(*sizes, out=out)
+    return x.cuda() if use_cuda else x
+
+
 # use_cuda = False
 FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
 LongTensor = cudaLongTensor if use_cuda else torch.LongTensor
