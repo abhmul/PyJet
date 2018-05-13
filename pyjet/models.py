@@ -73,11 +73,11 @@ class SLModel(nn.Module):
         loss.backward()
         [optimizer.step() for optimizer in optimizers]
         # Calculate the metrics
-        metric_scores = [metric(torch_preds, torch_target).data[0]
+        metric_scores = [metric(torch_preds, torch_target).item()
                          for metric in metrics]
         # Clean up some variables
         self.zero_grad()
-        loss = loss.data[0]
+        loss = loss.item()
         del torch_x
         del torch_target
         del torch_preds
@@ -95,7 +95,7 @@ class SLModel(nn.Module):
         torch_preds = self(torch_x)
         preds = self.cast_output_to_numpy(torch_preds)
         # Calculate the metrics
-        metric_vals = [metric(torch_preds, torch_target).data[0] for metric in metrics]
+        metric_vals = [metric(torch_preds, torch_target).item() for metric in metrics]
         # Clean up some variables
         del torch_x
         del torch_preds
