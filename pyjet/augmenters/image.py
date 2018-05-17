@@ -158,7 +158,7 @@ class ImageDataAugmenter(Augmenter):
 
         if self.channel_shift_range != 0 and self.save_inverses:
             warnings.warn("Image augmenter cannot invert channel shifting")
-        if self.augment_masks and self.save_inverses:
+        if self.augment_labels and self.save_inverses:
             warnings.warn("Be careful how you invert images. \
                 Masks are augmented in batch first before images!")
         if (self.samplewise_center or self.samplewise_std_normalization) \
