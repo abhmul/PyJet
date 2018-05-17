@@ -199,7 +199,7 @@ class ImageDataAugmenter(Augmenter):
 
         logging.info("Creating %r" % self)
 
-    def str(self):
+    def __str__(self):
         return "ImageDataAugmenter(\n\tlabels={labels} \
             \n\taugment_labels={augment_labels}, \
             \n\tsamplewise_center={samplewise_center}, \
@@ -219,7 +219,7 @@ class ImageDataAugmenter(Augmenter):
             \n\tsave_inverses = {save_inverses}, \
             \n)".format(**self.__dict__)
 
-    def repr(self):
+    def __repr__(self):
         return str(self)
 
     def augment(self, x):
