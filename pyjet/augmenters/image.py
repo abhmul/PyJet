@@ -7,6 +7,7 @@ from __future__ import print_function
 
 from collections import deque
 import warnings
+import logging
 
 import numpy as np
 import scipy.ndimage as ndi
@@ -195,6 +196,31 @@ class ImageDataAugmenter(Augmenter):
                 'Received arg: ', zoom_range)
         if seed is not None:
             np.random.seed(seed)
+
+        logging.info("Creating %r" % self)
+
+    def str(self):
+        return "ImageDataAugmenter(\n\tlabels={labels} \
+            \n\taugment_labels={augment_labels}, \
+            \n\tsamplewise_center={samplewise_center}, \
+            \n\tsamplewise_std_normalization={samplewise_std_normalization}, \
+            \n\trotation_range={rotation_range}, \
+            \n\twidth_shift_range={width_shift_range}, \
+            \n\theight_shift_range={height_shift_range}, \
+            \n\tshear_range={shear_range}, \
+            \n\tzoom_range={zoom_range}, \
+            \n\tchannel_shift_range={channel_shift_range}, \
+            \n\tfill_mode={fill_mode}, \
+            \n\tcval={cval}, \
+            \n\thorizontal_flip={horizontal_flip}, \
+            \n\tvertical_flip={vertical_flip}, \
+            \n\trescale = {rescale}, \
+            \n\tpreprocessing_function = {preprocessing_function}, \
+            \n\tsave_inverses = {save_inverses}, \
+            \n)".format(**self.__dict__)
+
+    def repr(self):
+        return str(self)
 
     def augment(self, x):
         for i in range(len(x)):
