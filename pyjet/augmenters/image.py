@@ -197,8 +197,9 @@ class ImageDataAugmenter(Augmenter):
             np.random.seed(seed)
 
     def augment(self, x):
-        for img in x:
-            self.random_transform(img, np.random.randint(2**32))
+        for i in range(len(x)):
+            x[i] = self.random_transform(x[i], np.random.randint(2**32))
+        return x
 
     def standardize(self, x):
         """Apply the normalization configuration to a batch of inputs.
