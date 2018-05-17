@@ -198,9 +198,7 @@ class ImageDataAugmenter(Augmenter):
 
     def augment(self, x):
         for img in x:
-            assert img.ndim == 3, "Each image must be a 3-dimensional array."
-            "Your input is {}".format(img.ndim)
-            self.random_transform(x, np.random.randint(2**32))
+            self.random_transform(img, np.random.randint(2**32))
 
     def standardize(self, x):
         """Apply the normalization configuration to a batch of inputs.
