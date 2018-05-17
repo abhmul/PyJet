@@ -169,7 +169,7 @@ class ImageDataAugmenter(Augmenter):
         if data_format not in {'channels_last', 'channels_first'}:
             raise ValueError("`data_format` should be `channels_last` (channel\
              after row and column) or `channels_first` (channel before row and\
-             column). Received arg: {} data_format".format_map(data_format))
+             column). Received arg: {} data_format".format(data_format))
         self.data_format = data_format
         if data_format == 'channels_first':
             self.channel_axis = 1
@@ -199,7 +199,7 @@ class ImageDataAugmenter(Augmenter):
     def augment(self, x):
         for img in x:
             assert img.ndim == 3, "Each image must be a 3-dimensional array."
-            "Your input is {}".format_map(img.ndim)
+            "Your input is {}".format(img.ndim)
             self.random_transform(x, np.random.randint(2**32))
 
     def standardize(self, x):
