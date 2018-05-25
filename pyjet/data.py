@@ -51,6 +51,7 @@ class Dataset(object):
              steps_per_epoch=None,
              batch_size=None,
              shuffle=True,
+             replace=False,
              seed=None):
         """
         This method creates a generator for the data.
@@ -64,6 +65,7 @@ class Dataset(object):
             steps_per_epoch=steps_per_epoch,
             batch_size=batch_size,
             shuffle=shuffle,
+            replace=replace,
             seed=seed)
 
     def validation_split(self, split=0.2, **kwargs):
@@ -109,6 +111,7 @@ class DatasetGenerator(BatchGenerator):
         batch_size -- The number of samples in one batch (optional)
         shuffle -- Whether or not to shuffle the dataset before each epoch
                    default: True
+        replace -- Whether or not to sample with replacement. default: False
         seed -- A seed for the random number generator (optional).
     """
 
@@ -117,10 +120,12 @@ class DatasetGenerator(BatchGenerator):
                  steps_per_epoch=None,
                  batch_size=None,
                  shuffle=True,
+                 replace=False,
                  seed=None):
         super(DatasetGenerator, self).__init__(steps_per_epoch, batch_size)
         self.dataset = dataset
-        self.shuffle = shuffle
+        self.shuffle = shuffle,
+        self.replace = replace
         self.seed = seed
         self.index_array = None
         self.lock = threading.Lock()
@@ -173,7 +178,11 @@ class DatasetGenerator(BatchGenerator):
             if self.shuffle:
                 np.random.shuffle(self.index_array)
             for i in range(0, len(self.index_array), self.batch_size):
-                yield (self.index_array[i:i + self.batch_size], )
+                if self.replace:
+                    yield (np.random.choice(self.index_array, self.batch_size,
+                                            True), )
+                else:
+                    yield (self.index_array[i:i + self.batch_size], )
 
     def __next__(self):
         # This is a critical section, so we lock when we need the next indicies
