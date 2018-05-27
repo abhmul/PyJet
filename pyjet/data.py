@@ -124,7 +124,7 @@ class DatasetGenerator(BatchGenerator):
                  seed=None):
         super(DatasetGenerator, self).__init__(steps_per_epoch, batch_size)
         self.dataset = dataset
-        self.shuffle = shuffle,
+        self.shuffle = shuffle
         self.replace = replace
         self.seed = seed
         self.index_array = None
