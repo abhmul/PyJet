@@ -84,8 +84,10 @@ def apply_transform(x,
 
 
 class ImageDataAugmenter(Augmenter):
-    """Generate minibatches of image data with real-time data augmentation.
+    """Augment minibatches of image data with real-time data augmentation.
     # Arguments
+        labels: Whether or not the minibatches have labels
+        augment_labels: Whether or not to augment the labels as well
         samplewise_center: set each sample mean to 0.
         samplewise_std_normalization: divide each input by its std.
         rotation_range: degrees (0 to 180).
