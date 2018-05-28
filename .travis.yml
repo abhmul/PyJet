@@ -3,8 +3,6 @@ python:
   - "3.5"
 # command to install dependencies
 install:
-  # Install PyTorch
-  - pip install -q http://download.pytorch.org/whl/cu80/torch-0.3.0.post4-cp35-cp35m-linux_x86_64.whl
   # Install all the other dependencies
   - pip install -e .[tests]
 # command to run tests

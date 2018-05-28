@@ -1,8 +1,10 @@
 import numpy as np
 import warnings
 try:
+    import matplotlib
     import matplotlib.pyplot as plt
 except ImportError:
+    matplotlib = None
     plt = None
 
 
@@ -161,7 +163,6 @@ class Plotter(Callback):
         self.plot_during_train = plot_during_train
         self.save_to_file = save_to_file
         self.block_on_end = block_on_end
-        plt.ion()
         self.fig = plt.figure()
         self.title = "{} per Epoch".format(self.monitor)
         self.xlabel = "Epoch"
@@ -172,9 +173,11 @@ class Plotter(Callback):
         self.x = []
         self.y_train = []
         self.y_val = []
+        self.ion = self.plot_during_train
 
     def on_train_end(self, train_logs=None, val_logs=None):
-        plt.ioff()
+        if self.plot_during_train:
+            plt.ioff()
         if self.block_on_end:
             plt.show()
         return
@@ -192,6 +195,11 @@ class Plotter(Callback):
         self.ax.set_yscale(self.scale)
         # Actually plot
         self.ax.plot(self.x, self.y_train, 'b-', self.x, self.y_val, 'g-')
+
+        if self.ion:
+            plt.ion()
+            self.ion = False
+            
         self.fig.canvas.draw()
         # plt.pause(0.5)
         if self.save_to_file is not None:

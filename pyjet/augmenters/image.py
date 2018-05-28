@@ -5,23 +5,19 @@ new preprocessing methods, etc...
 from __future__ import absolute_import
 from __future__ import print_function
 
-from .. import backend as J
-from .. import data
-import logging
 from collections import deque
 import warnings
+import logging
 
 import numpy as np
-import re
-from scipy import linalg
 import scipy.ndimage as ndi
-import os
-from functools import partial
 
 try:
     from PIL import Image as pil_image
 except ImportError:
     pil_image = None
+
+from . import Augmenter
 
 
 def flip_axis(x, axis):
@@ -34,8 +30,10 @@ def flip_axis(x, axis):
 def random_channel_shift(x, intensity, channel_axis=0):
     x = np.rollaxis(x, channel_axis, 0)
     min_x, max_x = np.min(x), np.max(x)
-    channel_images = [np.clip(x_channel + np.random.uniform(-intensity, intensity), min_x, max_x)
-                      for x_channel in x]
+    channel_images = [
+        np.clip(x_channel + np.random.uniform(-intensity, intensity), min_x,
+                max_x) for x_channel in x
+    ]
     x = np.stack(channel_images, axis=0)
     x = np.rollaxis(x, 0, channel_axis + 1)
     return x
@@ -71,21 +69,25 @@ def apply_transform(x,
     x = np.rollaxis(x, channel_axis, 0)
     final_affine_matrix = transform_matrix[:2, :2]
     final_offset = transform_matrix[:2, 2]
-    channel_images = [ndi.interpolation.affine_transform(
-        x_channel,
-        final_affine_matrix,
-        final_offset,
-        order=0,
-        mode=fill_mode,
-        cval=cval) for x_channel in x]
+    channel_images = [
+        ndi.interpolation.affine_transform(
+            x_channel,
+            final_affine_matrix,
+            final_offset,
+            order=0,
+            mode=fill_mode,
+            cval=cval) for x_channel in x
+    ]
     x = np.stack(channel_images, axis=0)
     x = np.rollaxis(x, 0, channel_axis + 1)
     return x
 
 
-class ImageDataGenerator(data.BatchGenerator):
-    """Generate minibatches of image data with real-time data augmentation.
+class ImageDataAugmenter(Augmenter):
+    """Augment minibatches of image data with real-time data augmentation.
     # Arguments
+        labels: Whether or not the minibatches have labels
+        augment_labels: Whether or not to augment the labels as well
         samplewise_center: set each sample mean to 0.
         samplewise_std_normalization: divide each input by its std.
         rotation_range: degrees (0 to 180).
@@ -112,15 +114,15 @@ class ImageDataGenerator(data.BatchGenerator):
             The function should take one argument:
             one image (Numpy tensor with rank 3),
             and should output a Numpy tensor with the same shape.
-        data_format: 'channels_first' or 'channels_last'. In 'channels_first' mode, the channels dimension
-            (the depth) is at index 1, in 'channels_last' mode it is at index 3.
-            It defaults to "channels_last".
+        data_format: 'channels_first' or 'channels_last'. In 'channels_first'
+            mode, the channels dimension (the depth) is at index 1, in
+            'channels_last' mode it is at index 3. It defaults to
+            "channels_last".
     """
 
     def __init__(self,
-                 generator,
                  labels=True,
-                 augment_masks=True,
+                 augment_labels=False,
                  samplewise_center=False,
                  samplewise_std_normalization=False,
                  rotation_range=0.,
@@ -138,16 +140,8 @@ class ImageDataGenerator(data.BatchGenerator):
                  seed=None,
                  data_format='channels_last',
                  save_inverses=False):
-        # Copy the steps per epoch and batch size if it has one
-        if hasattr(generator, "steps_per_epoch") and hasattr(generator, "batch_size"):
-            super(ImageDataGenerator, self).__init__(
-                steps_per_epoch=generator.steps_per_epoch, batch_size=generator.batch_size)
-        else:
-            logging.warning("Input generator does not have a steps_per_epoch or batch_size "
-                            "attribute. Continuing without them.")
-        self._generator = generator
-        self.labels = labels
-        self.augment_masks = augment_masks
+
+        super(ImageDataAugmenter, self).__init__(labels, augment_labels)
         self.samplewise_center = samplewise_center
         self.samplewise_std_normalization = samplewise_std_normalization
         self.rotation_range = rotation_range
@@ -167,15 +161,18 @@ class ImageDataGenerator(data.BatchGenerator):
 
         if self.channel_shift_range != 0 and self.save_inverses:
             warnings.warn("Image augmenter cannot invert channel shifting")
-        if self.augment_masks and self.save_inverses:
-            warnings.warn("Be careful how you invert images. Masks are augmented in batch first before images!")
-        if (self.samplewise_center or self.samplewise_std_normalization) and self.save_inverses:
-            warnings.warn("Image augmenter cannot invert samplewise mean and std normalization!")
+        if self.augment_labels and self.save_inverses:
+            warnings.warn("Be careful how you invert images. \
+                Masks are augmented in batch first before images!")
+        if (self.samplewise_center or self.samplewise_std_normalization) \
+                and self.save_inverses:
+            warnings.warn("Image augmenter cannot invert samplewise mean"
+                          " and std normalization!")
 
         if data_format not in {'channels_last', 'channels_first'}:
-            raise ValueError('`data_format` should be `"channels_last"` (channel after row and '
-                             'column) or `"channels_first"` (channel before row and column). '
-                             'Received arg: ', data_format)
+            raise ValueError("`data_format` should be `channels_last` (channel\
+             after row and column) or `channels_first` (channel before row and\
+             column). Received arg: {} data_format".format(data_format))
         self.data_format = data_format
         if data_format == 'channels_first':
             self.channel_axis = 1
@@ -195,34 +192,41 @@ class ImageDataGenerator(data.BatchGenerator):
         elif len(zoom_range) == 2:
             self.zoom_range = [zoom_range[0], zoom_range[1]]
         else:
-            raise ValueError('`zoom_range` should be a float or '
-                             'a tuple or list of two floats. '
-                             'Received arg: ', zoom_range)
+            raise ValueError(
+                '`zoom_range` should be a float or '
+                'a tuple or list of two floats. '
+                'Received arg: ', zoom_range)
         if seed is not None:
             np.random.seed(seed)
 
-    def __next__(self):
-        if self.labels:
-            x, y = next(self._generator)
-            assert(x.shape[0] == y.shape[0])
-            x, y = x.copy(), y.copy()
-        else:
-            x = next(self._generator).copy()
-        # Create the seeds
-        seeds = np.random.randint(2 ** 32, size=x.shape[0])
-        # Augment the masks if we have them and are supposed to
-        if self.labels and self.augment_masks:
-            for i in range(y.shape[0]):
-                y[i] = self.standardize(self.random_transform(
-                    y[i], seed=seeds[i]))
+        logging.info("Creating %r" % self)
 
-        # transform the image memory efficiently
-        for i in range(x.shape[0]):
-            x[i] = self.standardize(self.random_transform(x[i], seed=seeds[i]))
-            # augmenting image
+    def __str__(self):
+        return "ImageDataAugmenter(\n\tlabels={labels} \
+            \n\taugment_labels={augment_labels}, \
+            \n\tsamplewise_center={samplewise_center}, \
+            \n\tsamplewise_std_normalization={samplewise_std_normalization}, \
+            \n\trotation_range={rotation_range}, \
+            \n\twidth_shift_range={width_shift_range}, \
+            \n\theight_shift_range={height_shift_range}, \
+            \n\tshear_range={shear_range}, \
+            \n\tzoom_range={zoom_range}, \
+            \n\tchannel_shift_range={channel_shift_range}, \
+            \n\tfill_mode={fill_mode}, \
+            \n\tcval={cval}, \
+            \n\thorizontal_flip={horizontal_flip}, \
+            \n\tvertical_flip={vertical_flip}, \
+            \n\trescale = {rescale}, \
+            \n\tpreprocessing_function = {preprocessing_function}, \
+            \n\tsave_inverses = {save_inverses}, \
+            \n)".format(**self.__dict__)
 
-        if self.labels:
-            return x, y
+    def __repr__(self):
+        return str(self)
+
+    def augment(self, x):
+        for i in range(len(x)):
+            x[i] = self.random_transform(x[i], np.random.randint(2**32))
         return x
 
     def standardize(self, x):
@@ -244,8 +248,8 @@ class ImageDataGenerator(data.BatchGenerator):
             remove_channel_axis = True
             x = np.expand_dims(x, axis=img_channel_axis)
         elif x.ndim != 3:
-            raise ValueError(
-                "Dim of input image must be 2 or 3, given ", x.ndim)
+            raise ValueError("Dim of input image must be 2 or 3, given ",
+                             x.ndim)
         if self.samplewise_center:
             x -= np.mean(x, axis=img_channel_axis, keepdims=True)
         if self.samplewise_std_normalization:
@@ -275,8 +279,8 @@ class ImageDataGenerator(data.BatchGenerator):
             remove_channel_axis = True
             x = np.expand_dims(x, axis=img_channel_axis)
         elif x.ndim != 3:
-            raise ValueError(
-                "Dim of input image must be 2 or 3, given ", x.ndim)
+            raise ValueError("Dim of input image must be 2 or 3, given ",
+                             x.ndim)
 
         if seed is not None:
             np.random.seed(seed)
@@ -291,13 +295,15 @@ class ImageDataGenerator(data.BatchGenerator):
 
         if self.height_shift_range:
             tx = np.random.uniform(-self.height_shift_range,
-                                   self.height_shift_range) * x.shape[img_row_axis]
+                                   self.height_shift_range) * \
+                                   x.shape[img_row_axis]
         else:
             tx = 0
 
         if self.width_shift_range:
-            ty = np.random.uniform(-self.width_shift_range,
-                                   self.width_shift_range) * x.shape[img_col_axis]
+            ty = np.random.uniform(
+                -self.width_shift_range,
+                self.width_shift_range) * x.shape[img_col_axis]
         else:
             ty = 0
 
@@ -309,50 +315,47 @@ class ImageDataGenerator(data.BatchGenerator):
         if self.zoom_range[0] == 1 and self.zoom_range[1] == 1:
             zx, zy = 1, 1
         else:
-            zx, zy = np.random.uniform(
-                self.zoom_range[0], self.zoom_range[1], 2)
+            zx, zy = np.random.uniform(self.zoom_range[0], self.zoom_range[1],
+                                       2)
 
         transform_matrix = None
         if theta != 0:
             rotation_matrix = np.array([[np.cos(theta), -np.sin(theta), 0],
-                                        [np.sin(theta), np.cos(theta), 0],
-                                        [0, 0, 1]])
+                                        [np.sin(theta),
+                                         np.cos(theta), 0], [0, 0, 1]])
             transform_matrix = rotation_matrix
 
         if tx != 0 or ty != 0:
-            shift_matrix = np.array([[1, 0, tx],
-                                     [0, 1, ty],
-                                     [0, 0, 1]])
-            transform_matrix = shift_matrix if transform_matrix is None else np.dot(
-                transform_matrix, shift_matrix)
+            shift_matrix = np.array([[1, 0, tx], [0, 1, ty], [0, 0, 1]])
+            transform_matrix = shift_matrix if transform_matrix is None else \
+                np.dot(transform_matrix, shift_matrix)
 
         if shear != 0:
             shear_matrix = np.array([[1, -np.sin(shear), 0],
-                                     [0, np.cos(shear), 0],
-                                     [0, 0, 1]])
-            transform_matrix = shear_matrix if transform_matrix is None else np.dot(
-                transform_matrix, shear_matrix)
+                                     [0, np.cos(shear), 0], [0, 0, 1]])
+            transform_matrix = shear_matrix if transform_matrix is None else \
+                np.dot(transform_matrix, shear_matrix)
 
         if zx != 1 or zy != 1:
-            zoom_matrix = np.array([[zx, 0, 0],
-                                    [0, zy, 0],
-                                    [0, 0, 1]])
-            transform_matrix = zoom_matrix if transform_matrix is None else np.dot(
-                transform_matrix, zoom_matrix)
+            zoom_matrix = np.array([[zx, 0, 0], [0, zy, 0], [0, 0, 1]])
+            transform_matrix = zoom_matrix if transform_matrix is None else \
+                np.dot(transform_matrix, zoom_matrix)
 
         inverse_transform = None
         if transform_matrix is not None:
             h, w = x.shape[img_row_axis], x.shape[img_col_axis]
             transform_matrix = transform_matrix_offset_center(
                 transform_matrix, h, w)
-            x = apply_transform(x, transform_matrix, img_channel_axis,
-                                fill_mode=self.fill_mode, cval=self.cval)
+            x = apply_transform(
+                x,
+                transform_matrix,
+                img_channel_axis,
+                fill_mode=self.fill_mode,
+                cval=self.cval)
             inverse_transform = np.linalg.inv(transform_matrix)
 
-
         if self.channel_shift_range != 0:
-            x = random_channel_shift(x,
-                                     self.channel_shift_range,
+            x = random_channel_shift(x, self.channel_shift_range,
                                      img_channel_axis)
 
         horizontal_flipped = False
@@ -360,7 +363,6 @@ class ImageDataGenerator(data.BatchGenerator):
             if np.random.random() < 0.5:
                 x = flip_axis(x, img_col_axis)
                 horizontal_flipped = True
-
 
         vertically_flipped = False
         if self.vertical_flip:
@@ -374,16 +376,19 @@ class ImageDataGenerator(data.BatchGenerator):
 
         # If we want to save inverses, push onto the inverse queue
         if self.save_inverses:
-            self.inverse_transforms.appendleft((inverse_transform, horizontal_flipped, vertically_flipped))
+            self.inverse_transforms.appendleft(
+                (inverse_transform, horizontal_flipped, vertically_flipped))
         return x
 
     def apply_inversion_transform(self, x):
-        """Invert a random augment of a single image tensor.
-                # Arguments
-                    x: 3D tensor, single image.
-                # Returns
-                    The orignal image before the random transformed version of the input (same shape).
-                """
+        """
+        Invert a random augment of a single image tensor.
+        # Arguments
+            x: 3D tensor, single image.
+        # Returns
+            The orignal image before the random transformed version
+            of the input (same shape).
+        """
         # x is a single image, so it doesn't have image number at index 0
         img_row_axis = self.row_axis - 1
         img_col_axis = self.col_axis - 1
@@ -395,11 +400,12 @@ class ImageDataGenerator(data.BatchGenerator):
             remove_channel_axis = True
             x = np.expand_dims(x, axis=img_channel_axis)
         elif x.ndim != 3:
-            raise ValueError(
-                "Dim of input image must be 2 or 3, given ", x.ndim)
+            raise ValueError("Dim of input image must be 2 or 3, given ",
+                             x.ndim)
 
         # Pop from the queue
-        inverse_transform, horizontally_flipped, vertically_flipped = self.inverse_transforms.pop()
+        inverse_transform, horizontally_flipped, vertically_flipped = \
+            self.inverse_transforms.pop()
         # Undo any flipping
         if vertically_flipped:
             x = flip_axis(x, img_row_axis)
@@ -408,16 +414,25 @@ class ImageDataGenerator(data.BatchGenerator):
             x = flip_axis(x, img_col_axis)
 
         # Apply the inverse transform
-        x = apply_transform(x, inverse_transform, img_channel_axis, fill_mode=self.fill_mode, cval=self.cval)
+        x = apply_transform(
+            x,
+            inverse_transform,
+            img_channel_axis,
+            fill_mode=self.fill_mode,
+            cval=self.cval)
+
+        # Remove the channel axis if we added it
+        if remove_channel_axis:
+            x = np.squeeze(x, img_channel_axis)
 
         return x
 
     def invert_images(self, x_images):
-        # assert len(x_images) == len(self.inverse_transforms), "Have %s images, but only %s inverse transforms" % (len(x_images), len(self.inverse_transforms))
         if len(x_images) != len(self.inverse_transforms):
-            warnings.warn("Have %s images, but only %s inverse transforms. " \
-                          "Using first transforms and discarding rest" % (len(x_images), len(self.inverse_transforms)))
-        inverted = np.stack([self.apply_inversion_transform(x) for x in x_images], axis=0)
+            warnings.warn("Have %s images, but only %s inverse transforms. "
+                          "Using first transforms and discarding rest" %
+                          (len(x_images), len(self.inverse_transforms)))
+        inverted = np.stack(
+            [self.apply_inversion_transform(x) for x in x_images], axis=0)
         self.inverse_transforms = deque()
         return inverted
-

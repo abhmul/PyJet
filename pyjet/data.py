@@ -47,6 +47,27 @@ class Dataset(object):
         """
         raise NotImplementedError()
 
+    def flow(self,
+             steps_per_epoch=None,
+             batch_size=None,
+             shuffle=True,
+             replace=False,
+             seed=None):
+        """
+        This method creates a generator for the data.
+
+        Returns:
+            A DatasetGenerator with settings determined by inputs to this
+            method that generates batches made by this dataset
+        """
+        return DatasetGenerator(
+            self,
+            steps_per_epoch=steps_per_epoch,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            replace=replace,
+            seed=seed)
+
     def validation_split(self, split=0.2, **kwargs):
         raise NotImplementedError()
 
@@ -90,13 +111,21 @@ class DatasetGenerator(BatchGenerator):
         batch_size -- The number of samples in one batch (optional)
         shuffle -- Whether or not to shuffle the dataset before each epoch
                    default: True
+        replace -- Whether or not to sample with replacement. default: False
         seed -- A seed for the random number generator (optional).
     """
 
-    def __init__(self, dataset, steps_per_epoch=None, batch_size=None, shuffle=True, seed=None):
+    def __init__(self,
+                 dataset,
+                 steps_per_epoch=None,
+                 batch_size=None,
+                 shuffle=True,
+                 replace=False,
+                 seed=None):
         super(DatasetGenerator, self).__init__(steps_per_epoch, batch_size)
         self.dataset = dataset
         self.shuffle = shuffle
+        self.replace = replace
         self.seed = seed
         self.index_array = None
         self.lock = threading.Lock()
@@ -106,19 +135,21 @@ class DatasetGenerator(BatchGenerator):
                  int(self.batch_size is not None) +
                  int(len(self.dataset) != float("inf")))
         if check < 2:
-            raise ValueError("2 of the following must be defined: len(dataset),"
-                             " steps_per_epoch, and batch_size.")
+            raise ValueError(
+                "2 of the following must be defined: len(dataset),"
+                " steps_per_epoch, and batch_size.")
         # Otherwise, we're good, infer the missing info
         if len(self.dataset) != float('inf'):
             self.index_array = np.arange(len(self.dataset))
         if self.batch_size is None:
             if self.steps_per_epoch is None:
                 raise ValueError()
-            self.batch_size = int((len(self.dataset) + self.steps_per_epoch - 1) /
-                                  self.steps_per_epoch)
+            self.batch_size = int(
+                (len(self.dataset) + self.steps_per_epoch - 1) /
+                self.steps_per_epoch)
         if self.steps_per_epoch is None:
-            self.steps_per_epoch = int((len(self.dataset) + self.batch_size - 1) /
-                                       self.batch_size)
+            self.steps_per_epoch = int(
+                (len(self.dataset) + self.batch_size - 1) / self.batch_size)
         # Set the seed if we have one
         if self.seed is not None:
             np.random.seed(self.seed)
@@ -147,7 +178,11 @@ class DatasetGenerator(BatchGenerator):
             if self.shuffle:
                 np.random.shuffle(self.index_array)
             for i in range(0, len(self.index_array), self.batch_size):
-                yield (self.index_array[i:i + self.batch_size],)
+                if self.replace:
+                    yield (np.random.choice(self.index_array, self.batch_size,
+                                            True), )
+                else:
+                    yield (self.index_array[i:i + self.batch_size], )
 
     def __next__(self):
         # This is a critical section, so we lock when we need the next indicies
@@ -194,6 +229,7 @@ class NpDataset(Dataset):
         x -- The input data as a numpy array
         y -- The target data as a numpy array (optional)
     """
+
     # TODO define the kfold method for NpDataset
 
     def __init__(self, x, y=None, ids=None):
@@ -204,13 +240,15 @@ class NpDataset(Dataset):
         self.ids = ids
         self.output_labels = self.has_labels
         if self.has_labels:
-            assert len(self.x) == len(self.y), ("Data and labels must have same number of" +
-                                                "samples. X has shape ", len(x),
-                                                " and Y has shape ", len(y), ".")
+            assert len(self.x) == len(
+                self.y), ("Data and labels must have same number of" +
+                          "samples. X has shape ", len(x), " and Y has shape ",
+                          len(y), ".")
         if self.has_ids:
-            assert len(self.x) == len(self.ids), ("Data and ids must have same number of" +
-                                                  "samples. X has shape ", len(x),
-                                                  " and ids has shape ", len(ids), ".")
+            assert len(self.x) == len(
+                self.ids), ("Data and ids must have same number of" +
+                            "samples. X has shape ", len(x),
+                            " and ids has shape ", len(ids), ".")
 
     def __len__(self):
         return len(self.x)
@@ -227,7 +265,9 @@ class NpDataset(Dataset):
         self.output_labels = not self.output_labels
 
     def create_batch(self, batch_indicies):
-        outputs = [self.x[batch_indicies], ]
+        outputs = [
+            self.x[batch_indicies],
+        ]
         if self.output_labels:
             outputs.append(self.y[batch_indicies])
         if not self.output_labels:
@@ -247,7 +287,9 @@ class NpDataset(Dataset):
         train_splits = []
         for unq_label in unq_labels:
             # Find where the entire output label matches the unique label
-            label_inds = np.where(np.all(self.y == unq_label, axis=tuple(range(1, self.y.ndim))))[0]
+            label_inds = np.where(
+                np.all(self.y == unq_label, axis=tuple(range(1,
+                                                             self.y.ndim))))[0]
             if shuffle:
                 np.random.shuffle(label_inds)
             split_ind = int(split * len(label_inds))
@@ -259,14 +301,15 @@ class NpDataset(Dataset):
 
     def get_split_indicies(self, split, shuffle, seed, stratified):
         if stratified:
-            assert self.output_labels, "Data must have labels to split stratified."
+            assert self.has_labels, "Data must have labels to stratify."
 
         if shuffle:
             if seed is not None:
                 np.random.seed(seed)
 
         if stratified:
-            train_split, val_split = self.get_stratified_split_indicies(split, shuffle, seed)
+            train_split, val_split = self.get_stratified_split_indicies(
+                split, shuffle, seed)
         else:
             # Default technique of splitting the data
             split_ind = int(split * len(self))
@@ -291,7 +334,7 @@ class NpDataset(Dataset):
             split = 1.0 / k
             # Default technique of splitting the data
             split_start = int(i * split * len(self))
-            split_end = int((i+1) * split * len(self))
+            split_end = int((i + 1) * split * len(self))
             val_split = slice(split_start, split_end)
             train_split_a = indicies[0:split_start]
             train_split_b = indicies[split_end:]
@@ -302,7 +345,11 @@ class NpDataset(Dataset):
 
             yield np.concatenate([train_split_a, train_split_b]), val_split
 
-    def validation_split(self, split=0.2, shuffle=False, seed=None, stratified=False):
+    def validation_split(self,
+                         split=0.2,
+                         shuffle=False,
+                         seed=None,
+                         stratified=False):
         """
         Splits the NpDataset into two smaller datasets based on the split
 
@@ -316,8 +363,8 @@ class NpDataset(Dataset):
                           the same label distribution as the whole dataset
 
         # Returns
-            A train dataset with (1-split) fraction of the data and a validation
-            dataset with split fraction of the data
+            A train dataset with (1-split) fraction of the data and a
+            validation dataset with split fraction of the data
 
         # Note
             Shuffling the dataset will at one point cause double the size of
@@ -327,13 +374,16 @@ class NpDataset(Dataset):
             destroy_self flag to True if you can afford the split, but want to
             reclaim the memory from the parent dataset.
         """
-        train_split, val_split = self.get_split_indicies(split, shuffle, seed, stratified)
-        train_data = self.__class__(self.x[train_split],
-                               y=None if not self.has_labels else self.y[train_split],
-                               ids=None if not self.has_ids else self.ids[train_split])
-        val_data = self.__class__(self.x[val_split],
-                             y=None if not self.has_labels else self.y[val_split],
-                             ids=None if not self.has_ids else self.ids[val_split])
+        train_split, val_split = self.get_split_indicies(
+            split, shuffle, seed, stratified)
+        train_data = self.__class__(
+            self.x[train_split],
+            y=None if not self.has_labels else self.y[train_split],
+            ids=None if not self.has_ids else self.ids[train_split])
+        val_data = self.__class__(
+            self.x[val_split],
+            y=None if not self.has_labels else self.y[val_split],
+            ids=None if not self.has_ids else self.ids[val_split])
         return train_data, val_data
 
     def kfold(self, k=5, shuffle=False, seed=None):
@@ -348,8 +398,9 @@ class NpDataset(Dataset):
         # Yields
             A train dataset with 1-1/k fraction of the data and a validation
             dataset with 1\k fraction of the data. Each subsequent validation
-            set contains a different region of the entire dataset. The intersection
-            of each validation set is empty and the union of each is the entire dataset.
+            set contains a different region of the entire dataset. The
+            intersection of each validation set is empty and the union of each
+            is the entire dataset.
 
         # Note
             Shuffling the dataset will at one point cause double the size of
@@ -360,12 +411,14 @@ class NpDataset(Dataset):
             reclaim the memory from the parent dataset.
         """
         for train_split, val_split in self.get_kfold_indices(k, shuffle, seed):
-            train_data = NpDataset(self.x[train_split],
-                                   y=None if not self.has_labels else self.y[train_split],
-                                   ids=None if not self.has_ids else self.ids[train_split])
-            val_data = NpDataset(self.x[val_split],
-                                 y=None if not self.has_labels else self.y[val_split],
-                                 ids=None if not self.has_ids else self.ids[val_split])
+            train_data = NpDataset(
+                self.x[train_split],
+                y=None if not self.has_labels else self.y[train_split],
+                ids=None if not self.has_ids else self.ids[train_split])
+            val_data = NpDataset(
+                self.x[val_split],
+                y=None if not self.has_labels else self.y[val_split],
+                ids=None if not self.has_ids else self.ids[val_split])
             yield train_data, val_data
 
 
@@ -378,13 +431,20 @@ class ImageDataset(NpDataset):
             y -- The target data as a numpy array of labels (optional)
         """
 
-    MODE2FUNC = {"rgb": lambda x: x, "ycbcr": rgb2ycbcr, "gray": lambda x: rgb2gray(x)[:, :, np.newaxis]}
+    MODE2FUNC = {
+        "rgb": lambda x: x,
+        "ycbcr": rgb2ycbcr,
+        "gray": lambda x: rgb2gray(x)[:, :, np.newaxis]
+    }
 
     def __init__(self, x, y=None, ids=None, img_size=None, mode="rgb"):
         super(ImageDataset, self).__init__(x, y=y, ids=ids)
         self.img_size = img_size
         assert mode in ImageDataset.MODE2FUNC, "Invalid mode %s" % mode
         self.mode = mode
+        logging.info(
+            "Creating ImageDataset(img_size={img_size}, mode={mode}".format(
+                img_size=self.img_size, mode=self.mode))
 
     @staticmethod
     def load_img(path_to_img, img_size=None, mode="rgb"):
@@ -400,32 +460,43 @@ class ImageDataset(NpDataset):
         orig_img_shape = img.shape[:2]
         # Resize to the input size
         if img_size is not None:
-            img = resize(img, img_size, mode='constant', preserve_range=True).astype(np.uint8)
+            img = resize(
+                img, img_size, mode='constant',
+                preserve_range=True).astype(np.uint8)
+
+        # Normalize the image
+        if mode == "rgb" or mode == "gray":
+            img = img / 255.
+        elif mode == "ycbcr":
+            img = img / 235.
+
         return img, orig_img_shape
 
     def create_batch(self, batch_indicies):
         filenames = self.x[batch_indicies]
-        images = [self.load_img(path_to_img, img_size=self.img_size, mode=self.mode) for path_to_img in filenames]
-        # If variable image size, stack the images as numpy arrays otherwise create one large numpy array
+        images = [
+            self.load_img(path_to_img, img_size=self.img_size,
+                          mode=self.mode)[0] for path_to_img in filenames
+        ]
+        # If variable image size, stack the images as numpy arrays otherwise
+        # create one large numpy array
         if self.img_size is None:
-            x = [np.array(images, dtype='O'), ]
+            x = np.array(images, dtype='O')
         else:
-            x = [np.stack(images), ]
+            x = np.stack(images)
 
         if self.output_labels:
             return x, self.y[batch_indicies]
         return x
-    
+
 
 class HDF5Dataset(Dataset):
-
     def __init__(self, x, y=None):
         super(HDF5Dataset, self).__init__()
         raise NotImplementedError()
 
 
 class TorchDataset(Dataset):
-
     def __init__(self, x, y=None):
         super(TorchDataset, self).__init__()
         raise NotImplementedError()
