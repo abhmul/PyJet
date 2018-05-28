@@ -5,6 +5,7 @@ from torch.autograd import Variable
 
 from . import backend as J
 from .training import ProgBar, MetricLogs
+from .callbacks import CallbackList
 
 python_iterables = {list, set, tuple, frozenset}
 
@@ -169,8 +170,9 @@ class SLModel(nn.Module):
         metrics = standardize_list_input(metrics)
         np_metrics = standardize_list_input(np_metrics)
         loss_fn = self.compile_loss(loss_fn)
+        callbacks = CallbackList(callbacks=callbacks, queue_length=10)
         # Register the model with each callback
-        [callback.set_model(self) for callback in callbacks]
+        callbacks.set_model(self)
         # Save whether we will need to run validation
         run_validation = (validation_steps >
                           0) and validation_generator is not None
@@ -178,10 +180,7 @@ class SLModel(nn.Module):
         train_logs = MetricLogs([loss_fn] + metrics)
         val_logs = MetricLogs([loss_fn] + metrics + np_metrics)
         # Run the callbacks
-        [
-            callback.on_train_begin(train_logs=train_logs, val_logs=val_logs)
-            for callback in callbacks
-        ]
+        callbacks.on_train_begin(train_logs=train_logs, val_logs=val_logs)
         # Loop through all the epochs
         for epoch in range(initial_epoch, epochs):
             # Put the model in train mode
@@ -194,18 +193,12 @@ class SLModel(nn.Module):
             # Setup the batch logs
             batch_logs = MetricLogs([loss_fn] + metrics)
             # Run the callbacks
-            [
-                callback.on_epoch_begin(
-                    epoch, train_logs=train_logs, val_logs=val_logs)
-                for callback in callbacks
-            ]
+            callbacks.on_epoch_begin(
+                epoch, train_logs=train_logs, val_logs=val_logs)
             # Run each step of the epoch with a progress bar
             for step in progbar(steps_per_epoch):
                 # Run the callbacks
-                [
-                    callback.on_batch_begin(step, train_logs=batch_logs)
-                    for callback in callbacks
-                ]
+                callbacks.on_batch_begin(step, train_logs=batch_logs)
                 x, target = next(generator)
                 # if len(generator_output) == 2:
                 # x, target = generator_output
@@ -222,10 +215,7 @@ class SLModel(nn.Module):
                                                [b_loss] + b_metrics)
                 progbar.update_bar()
                 # Run the callbacks
-                [
-                    callback.on_batch_end(step, train_logs=batch_logs)
-                    for callback in callbacks
-                ]
+                callbacks.on_batch_end(step, train_logs=batch_logs)
 
             # Compute the average stats
             for stat in [loss_fn] + metrics:
@@ -249,16 +239,10 @@ class SLModel(nn.Module):
                 ]
                 val_logs.update_logs(val_metric_funcs, val_scores)
             # Run the callbacks
-            [
-                callback.on_epoch_end(
-                    epoch, train_logs=train_logs, val_logs=val_logs)
-                for callback in callbacks
-            ]
+            callbacks.on_epoch_end(
+                epoch, train_logs=train_logs, val_logs=val_logs)
         # Run the callbacks
-        [
-            callback.on_train_end(train_logs=train_logs, val_logs=val_logs)
-            for callback in callbacks
-        ]
+        callbacks.on_train_end(train_logs=train_logs, val_logs=val_logs)
         # Put the model back in eval mode
         self.eval()
         return train_logs, val_logs
