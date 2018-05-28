@@ -6,7 +6,6 @@ from torch.autograd import Variable
 from . import backend as J
 from .training import ProgBar, MetricLogs
 
-
 python_iterables = {list, set, tuple, frozenset}
 
 
@@ -16,10 +15,9 @@ def standardize_list_input(inputs):
     return [inputs]
 
 
-# TODO Not sure whether I'll need to seperate RL models and SL models. Hopefully
-# I planned this out right
+# TODO Not sure whether I'll need to seperate RL models and SL models.
+# Hopefully I planned this out right
 class SLModel(nn.Module):
-
     def __init__(self, torch_module=None):
         super(SLModel, self).__init__()
         self.to_cuda = J.use_cuda
@@ -52,7 +50,9 @@ class SLModel(nn.Module):
     def compile_loss(self, loss_fn):
         def loss(preds, targets):
             # Preds are not used, just works as metric)
-            return loss_fn(*standardize_list_input(self.loss_in), targets, **self.loss_kwargs)
+            return loss_fn(*standardize_list_input(self.loss_in), targets,
+                           **self.loss_kwargs)
+
         return loss
 
     def train_on_batch(self, x, target, optimizers, loss_fn, metrics=()):
@@ -73,8 +73,9 @@ class SLModel(nn.Module):
         loss.backward()
         [optimizer.step() for optimizer in optimizers]
         # Calculate the metrics
-        metric_scores = [metric(torch_preds, torch_target).item()
-                         for metric in metrics]
+        metric_scores = [
+            metric(torch_preds, torch_target).item() for metric in metrics
+        ]
         # Clean up some variables
         self.zero_grad()
         loss = loss.item()
@@ -95,7 +96,9 @@ class SLModel(nn.Module):
         torch_preds = self(torch_x)
         preds = self.cast_output_to_numpy(torch_preds)
         # Calculate the metrics
-        metric_vals = [metric(torch_preds, torch_target).item() for metric in metrics]
+        metric_vals = [
+            metric(torch_preds, torch_target).item() for metric in metrics
+        ]
         # Clean up some variables
         del torch_x
         del torch_preds
@@ -104,14 +107,21 @@ class SLModel(nn.Module):
             torch.cuda.empty_cache()
         return metric_vals, preds
 
-    def validate_generator(self, val_generator, validation_steps, loss_fn=None, metrics=(), np_metrics=(),
+    def validate_generator(self,
+                           val_generator,
+                           validation_steps,
+                           loss_fn=None,
+                           metrics=(),
+                           np_metrics=(),
                            verbose=0):
         self.cast_model_to_cuda()
         metrics = standardize_list_input(metrics)
         np_metrics = standardize_list_input(np_metrics)
         if loss_fn is not None:
             loss_fn = self.compile_loss(loss_fn)
-            metrics = [loss_fn, ] + metrics
+            metrics = [
+                loss_fn,
+            ] + metrics
         # Set up the logs
         batch_logs = MetricLogs(metrics)
         # Set the model to eval mode
@@ -119,7 +129,7 @@ class SLModel(nn.Module):
         preds = []
         targets = []
         progbar = ProgBar(verbosity=verbose)
-        for step in progbar(validation_steps):
+        for _ in progbar(validation_steps):
             x, target = next(val_generator)
             b_metrics, b_preds = self.validate_on_batch(x, target, metrics)
             batch_logs.update_logs(metrics, b_metrics)
@@ -127,17 +137,32 @@ class SLModel(nn.Module):
                 preds.append(b_preds)
                 targets.append(target)
         # Compute the np preds over the whole prediction set
-        torch_metric_vals = {metric.__name__: batch_logs.average(metric) for metric in metrics}
+        torch_metric_vals = {
+            metric.__name__: batch_logs.average(metric)
+            for metric in metrics
+        }
         # No-op if np_metrics is not given
         if len(np_metrics):
             preds = np.concatenate(preds, axis=0)
             targets = np.concatenate(targets, axis=0)
-        np_metric_vals = {metric.__name__: metric(preds, targets) for metric in np_metrics}
+        np_metric_vals = {
+            metric.__name__: metric(preds, targets)
+            for metric in np_metrics
+        }
         return {**torch_metric_vals, **np_metric_vals}
 
-    def fit_generator(self, generator, steps_per_epoch, epochs, optimizer,
-                      loss_fn, validation_generator=None, validation_steps=0,
-                      metrics=(), np_metrics=(), callbacks=(), initial_epoch=0,
+    def fit_generator(self,
+                      generator,
+                      steps_per_epoch,
+                      epochs,
+                      optimizer,
+                      loss_fn,
+                      validation_generator=None,
+                      validation_steps=0,
+                      metrics=(),
+                      np_metrics=(),
+                      callbacks=(),
+                      initial_epoch=0,
                       verbose=1):
         self.cast_model_to_cuda()
         optimizers = standardize_list_input(optimizer)
@@ -153,43 +178,54 @@ class SLModel(nn.Module):
         train_logs = MetricLogs([loss_fn] + metrics)
         val_logs = MetricLogs([loss_fn] + metrics + np_metrics)
         # Run the callbacks
-        [callback.on_train_begin(train_logs=train_logs, val_logs=val_logs)
-         for callback in callbacks]
+        [
+            callback.on_train_begin(train_logs=train_logs, val_logs=val_logs)
+            for callback in callbacks
+        ]
         # Loop through all the epochs
         for epoch in range(initial_epoch, epochs):
             # Put the model in train mode
             self.train()
             if verbose > 0:
-                print("Epoch {curr}/{total}".format(curr=epoch + 1, total=epochs))
+                print("Epoch {curr}/{total}".format(
+                    curr=epoch + 1, total=epochs))
             # Setup the progress bar
             progbar = ProgBar(verbosity=verbose)
             # Setup the batch logs
             batch_logs = MetricLogs([loss_fn] + metrics)
             # Run the callbacks
-            [callback.on_epoch_begin(epoch, train_logs=train_logs, val_logs=val_logs)
-             for callback in callbacks]
+            [
+                callback.on_epoch_begin(
+                    epoch, train_logs=train_logs, val_logs=val_logs)
+                for callback in callbacks
+            ]
             # Run each step of the epoch with a progress bar
             for step in progbar(steps_per_epoch):
                 # Run the callbacks
-                [callback.on_batch_begin(step, train_logs=batch_logs)
-                 for callback in callbacks]
+                [
+                    callback.on_batch_begin(step, train_logs=batch_logs)
+                    for callback in callbacks
+                ]
                 x, target = next(generator)
                 # if len(generator_output) == 2:
                 # x, target = generator_output
                 # else:
-                # raise ValueError("Generator output had a length of %s" % len(generator_output))
+                # raise ValueError("Generator output had a length "
+                #                  "of %s" % len(generator_output))
                 b_loss, b_metrics = self.train_on_batch(
                     x, target, optimizers, loss_fn, metrics)
                 # Add stats to the batch_logs
-                batch_logs.update_logs(
-                    [loss_fn] + metrics, [b_loss] + b_metrics)
+                batch_logs.update_logs([loss_fn] + metrics,
+                                       [b_loss] + b_metrics)
                 # Add the stats to the progress bar
-                progbar.update_stats_from_func(
-                    [loss_fn] + metrics, [b_loss] + b_metrics)
+                progbar.update_stats_from_func([loss_fn] + metrics,
+                                               [b_loss] + b_metrics)
                 progbar.update_bar()
                 # Run the callbacks
-                [callback.on_batch_end(step, train_logs=batch_logs)
-                 for callback in callbacks]
+                [
+                    callback.on_batch_end(step, train_logs=batch_logs)
+                    for callback in callbacks
+                ]
 
             # Compute the average stats
             for stat in [loss_fn] + metrics:
@@ -198,21 +234,31 @@ class SLModel(nn.Module):
             # Check if we need to run validation
             if run_validation:
                 val_metrics = self.validate_generator(
-                    validation_generator, validation_steps, metrics=([loss_fn] + metrics), np_metrics=np_metrics)
+                    validation_generator,
+                    validation_steps,
+                    metrics=([loss_fn] + metrics),
+                    np_metrics=np_metrics)
                 print("\tValidation Loss: ", val_metrics['loss'])
                 for metric_name, metric_score in val_metrics.items():
                     print("\tValidation %s: " % metric_name, metric_score)
                 # Log the loss and metrics
                 val_metric_funcs = [loss_fn] + metrics + np_metrics
-                val_scores = [val_metrics[metric_func.__name__]
-                              for metric_func in val_metric_funcs]
+                val_scores = [
+                    val_metrics[metric_func.__name__]
+                    for metric_func in val_metric_funcs
+                ]
                 val_logs.update_logs(val_metric_funcs, val_scores)
             # Run the callbacks
-            [callback.on_epoch_end(epoch, train_logs=train_logs, val_logs=val_logs)
-             for callback in callbacks]
+            [
+                callback.on_epoch_end(
+                    epoch, train_logs=train_logs, val_logs=val_logs)
+                for callback in callbacks
+            ]
         # Run the callbacks
-        [callback.on_train_end(train_logs=train_logs, val_logs=val_logs)
-         for callback in callbacks]
+        [
+            callback.on_train_end(train_logs=train_logs, val_logs=val_logs)
+            for callback in callbacks
+        ]
         # Put the model back in eval mode
         self.eval()
         return train_logs, val_logs
@@ -239,7 +285,7 @@ class SLModel(nn.Module):
         preds = []
         # Loop through all the steps
         progbar = ProgBar(verbosity=verbose)
-        for step in progbar(prediction_steps):
+        for _ in progbar(prediction_steps):
             x = next(generator)
             batch_preds = self.predict_on_batch(x)
             # Check to make sure the ndim is the same
@@ -248,13 +294,17 @@ class SLModel(nn.Module):
 
         # Supports variable sized predictions - get the biggest possible shape
         num_preds = sum(len(batch_preds) for batch_preds in preds)
-        max_shape = [num_preds] + [max(preds[n].shape[i] for n in range(len(preds))) for i in range(1, preds[0].ndim)]
+        max_shape = [num_preds] + [
+            max(preds[n].shape[i] for n in range(len(preds)))
+            for i in range(1, preds[0].ndim)
+        ]
         full_preds = np.zeros(max_shape, dtype=preds[0].dtype)
         # Fill in the predictions array
         cur_pred_ind = 0
         for batch_preds in preds:
-            preds_slice = (slice(cur_pred_ind, len(batch_preds)),) + tuple(
-                slice(batch_preds.shape[i]) for i in range(1, batch_preds.ndim))
+            preds_slice = (slice(cur_pred_ind, len(batch_preds)), ) + tuple(
+                slice(batch_preds.shape[i])
+                for i in range(1, batch_preds.ndim))
             full_preds[preds_slice] = batch_preds
             cur_pred_ind += len(batch_preds)
 
