@@ -1,5 +1,7 @@
+from collections import defaultdict
 import numpy as np
 import warnings
+from tqdm import tqdm
 try:
     import matplotlib
     import matplotlib.pyplot as plt
@@ -40,23 +42,52 @@ class Callback(object):
     def set_model(self, model):
         self.model = model
 
-    def on_epoch_begin(self, epoch, train_logs=None, val_logs=None):
+    def on_epoch_begin(self, epoch, logs=None):
         pass
 
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
+    def on_epoch_end(self, epoch, logs=None):
         pass
 
-    def on_batch_begin(self, batch, train_logs=None, val_logs=None):
+    def on_batch_begin(self, step, epoch, logs=None):
         pass
 
-    def on_batch_end(self, batch, train_logs=None, val_logs=None):
+    def on_batch_end(self, step, epoch, logs=None):
         pass
 
-    def on_train_begin(self, train_logs=None, val_logs=None):
+    def on_train_begin(self, logs=None):
         pass
 
-    def on_train_end(self, train_logs=None, val_logs=None):
+    def on_train_end(self, logs=None):
         pass
+
+
+class ProgressBar(Callback):
+
+    def __init__(self, steps):
+        super(ProgressBar, self).__init__()
+        self.steps = steps
+        self.last_step = 0
+        self.progbar = None
+
+    def on_epoch_begin(self, epoch, logs=None):
+        logs = {} if logs is None else logs
+        # Create a new progress bar for the epoch
+        self.progbar = tqdm(total=self.steps)
+        self.last_step = 0
+        # Store the logs for updating the postfix
+        self.epoch_logs = logs
+
+    def on_batch_end(self, step, epoch, logs=None):
+        self.progbar.set_postfix(self.epoch_logs)
+        self.progbar.update(step - self.last_step)
+        self.last_step = step
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = {} if logs is None else logs
+        self.epoch_logs = logs
+        self.progbar.set_postfix(logs)
+        # 0 because we've already finished all steps
+        self.progbar.update(0)
 
 
 class ModelCheckpoint(Callback):
@@ -89,12 +120,11 @@ class ModelCheckpoint(Callback):
         period: Interval (number of epochs) between checkpoints.
     """
 
-    def __init__(self, filepath, monitor, monitor_val=True, verbose=0,
+    def __init__(self, filepath, monitor, verbose=0,
                  save_best_only=False,
                  mode='auto', period=1):
         super(ModelCheckpoint, self).__init__()
         self.monitor = monitor
-        self.monitor_val = monitor_val
         self.verbose = verbose
         self.filepath = filepath
         self.save_best_only = save_best_only
@@ -121,15 +151,14 @@ class ModelCheckpoint(Callback):
                 self.monitor_op = np.less
                 self.best = np.Inf
 
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        logs = val_logs if self.monitor_val else train_logs
+    def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
         self.epochs_since_last_save += 1
         if self.epochs_since_last_save >= self.period:
             self.epochs_since_last_save = 0
             filepath = self.filepath.format(epoch=epoch)
             if self.save_best_only:
-                current = logs[self.monitor][-1]
+                current = logs[self.monitor]
                 if current is None:
                     warnings.warn('Can save best model only with %s available, '
                                   'skipping.' % self.monitor, RuntimeWarning)
@@ -175,19 +204,18 @@ class Plotter(Callback):
         self.y_val = []
         self.ion = self.plot_during_train
 
-    def on_train_end(self, train_logs=None, val_logs=None):
+    def on_train_end(self, logs=None):
         if self.plot_during_train:
             plt.ioff()
         if self.block_on_end:
             plt.show()
         return
 
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        train_logs = train_logs or {}
-        val_logs = val_logs or {}
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
         self.x.append(len(self.x))
-        self.y_train.append(train_logs[self.monitor][-1])
-        self.y_val.append(val_logs[self.monitor][-1])
+        self.y_train.append(logs[self.monitor])
+        self.y_val.append(logs["val_" + self.monitor])
         self.ax.clear()
         # # Set up the plot
         self.fig.suptitle(self.title)
@@ -199,7 +227,7 @@ class Plotter(Callback):
         if self.ion:
             plt.ion()
             self.ion = False
-            
+
         self.fig.canvas.draw()
         # plt.pause(0.5)
         if self.save_to_file is not None:
@@ -363,4 +391,3 @@ class LRScheduler(Callback):
             param_group['lr'] = new_lr
         if self.verbose > 0:
             print('\nEpoch %05d: LRScheduler setting lr to %s.' % (epoch + 1, new_lr))
-

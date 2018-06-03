@@ -51,7 +51,8 @@ class Metric(object):
             y_true: The labels for the batch
 
         Returns:
-            The metric score calculated over the batch input.
+            The metric score calculated over the batch input as a scalar
+            torch tensor.
         """
         if self.metric_func is not None:
             return self.metric_func(y_pred, y_true)
@@ -83,7 +84,7 @@ class AverageMetric(Metric):
         assert y_true.size(0) == y_pred.size(0), "Batch Size of labels and" \
             "predictions must match for AverageMetric."
         self.sample_count += y_pred.size(0)
-        score = self.score(y_pred, y_true)
+        score = super(AverageMetric, self).__call__(y_pred, y_true)
         self.metric_sum += (score * y_pred.size(0))
         return score
 

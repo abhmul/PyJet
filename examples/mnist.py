@@ -75,11 +75,10 @@ model = MNISTModel()
 # This will save the best scoring model weights to the current directory
 best_model = ModelCheckpoint(
     "mnist_pyjet" + ".state",
-    monitor='accuracy',
+    monitor='val_accuracy',
     mode='max',
     verbose=1,
-    save_best_only=True,
-    monitor_val=True)
+    save_best_only=True)
 # This will plot the model's accuracy during training
 plotter = Plotter(scale='linear', monitor='accuracy')
 

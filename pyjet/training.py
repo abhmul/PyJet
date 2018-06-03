@@ -93,9 +93,32 @@ class GeneratorEnqueuer(data.BatchGenerator):
                 # print("Waiting...")
                 time.sleep(self.wait_time)
 
+
+class TrainingLogs(dict):
+
+    def __init__(self):
+        super().__init__()
+        self.epoch_logs = {}
+        self.batch_logs = {}
+
+    def on_epoch_begin(self):
+        self.epoch_logs = {}
+        self.batch_logs = {}
+
+    def log_metric(self, metric, score):
+        self.batch_logs[metric.__name__] = score.item()
+        self.epoch_logs[metric.__name__] = metric.accumulate().item()
+
+    def on_epoch_end(self):
+        for metric_name, score in self.epoch_logs.items():
+            self.setdefault(metric_name, []).append(score)
+
+    def log_validation_metric(self, metric):
+        self.epoch_logs["val_" + metric.__name__] = metric.accumulate().item()
+
+
+
 # A simple object for logging
-
-
 class MetricLogs(object):
     def __init__(self, metrics):
         self.logs = {}
