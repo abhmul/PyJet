@@ -15,14 +15,14 @@ class Accuracy(AverageMetric):
         An accuracy metric that can maintain its own internal state.
 
     Inputs:
-        y_true (torch.LongTensor): A 1D torch LongTensor of the correct classes
         y_pred (torch.FloatTensor): A 2D Float Tensor with the predicted
             probabilites for each class.
+        y_true (torch.LongTensor): A 1D torch LongTensor of the correct classes
     Outputs:
         A scalar tensor equal to the accuracy of the y_pred
 
     """
-    def score(self, y_true, y_pred):
+    def score(self, y_pred, y_true):
         # Expect output and target to be B x 1 or B x C or target can be
         # B (with ints from 0 to C-1)
         assert y_pred.dim() == 2, "y_pred should be a 2-dimensional tensor"
@@ -52,12 +52,12 @@ class AccuracyWithLogits(Accuracy):
     """An accuracy metric that takes as input the logits. See `Accuracy` for
     more details.
     """
-    def __call__(self, y_true, y_pred):
+    def score(self, y_pred, y_true):
         if y_pred.dim() == 2 and y_pred.size(1) > 1:
             y_pred = F.softmax(y_pred, dim=1)
         else:
             y_pred = F.sigmoid(y_pred)
-        return super().__call__(y_true, y_pred)
+        return super().score(y_pred, y_true)
 
 
 class TopKAccuracy(Accuracy):
@@ -70,9 +70,9 @@ class TopKAccuracy(Accuracy):
         A TopKAccuracy metric that can maintain its own internal state.
 
     Inputs:
-        y_true (torch.LongTensor) A 1D torch LongTensor of the correct classes
         y_pred (torch.FloatTensor) A 2D Float Tensor with the predicted
             probabilites for each class.
+        y_true (torch.LongTensor) A 1D torch LongTensor of the correct classes
 
     Outputs:
         A scalar tensor equal to the topk accuracy of the y_pred
@@ -83,7 +83,7 @@ class TopKAccuracy(Accuracy):
         super().__init__()
         self.k = k
 
-    def score(self, y_true, y_pred):
+    def score(self, y_pred, y_true):
         assert y_true.dim() == y_pred.dim() - 1 == 1
         channel_dim = 1
         batch_size = y_true.size(0)

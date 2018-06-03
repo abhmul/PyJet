@@ -56,7 +56,7 @@ class SLModel(nn.Module):
         return
 
     def compile_loss(self, loss_fn):
-        def loss(targets, preds):
+        def loss(preds, targets):
             # Preds are not used, just works as metric)
             return loss_fn(*standardize_list_input(self.loss_in), targets,
                            **self.loss_kwargs)
@@ -72,7 +72,7 @@ class SLModel(nn.Module):
         # Make the prediction
         torch_preds = self(torch_x)
         # Calculate the loss
-        loss = loss_fn(torch_target, torch_preds)
+        loss = loss_fn(torch_preds, torch_target)
         # Add in the auxilary losses if there are any
         if self.aux_loss:
             loss += sum(aux_loss(torch_target) for aux_loss in self.aux_loss)
@@ -82,7 +82,7 @@ class SLModel(nn.Module):
         [optimizer.step() for optimizer in optimizers]
         # Calculate the metrics
         metric_scores = [
-            metric(torch_target, torch_preds).item() for metric in metrics
+            metric(torch_preds, torch_target).item() for metric in metrics
         ]
         # Clean up some variables
         self.zero_grad()
@@ -104,8 +104,8 @@ class SLModel(nn.Module):
         torch_preds = self(torch_x)
         preds = self.cast_output_to_numpy(torch_preds)
         # Calculate the metrics
-        metric_vals = [
-            metric(torch_target, torch_preds).item() for metric in metrics
+        metric_scores = [
+            metric(torch_preds, torch_target).item() for metric in metrics
         ]
         # Clean up some variables
         del torch_x
@@ -113,7 +113,7 @@ class SLModel(nn.Module):
         del torch_target
         if J.use_cuda:
             torch.cuda.empty_cache()
-        return metric_vals, preds
+        return metric_scores, preds
 
     def validate_generator(self,
                            val_generator,

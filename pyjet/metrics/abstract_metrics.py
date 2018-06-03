@@ -2,7 +2,7 @@ class Metric(object):
     """
     The abstract metric that defines the metric API. Some notes on it:
 
-    - Passing a function of the form `metric(y_true, y_pred)` to an abstract
+    - Passing a function of the form `metric(y_pred, y_true)` to an abstract
     metric will use that function to calculate the score on a batch.
 
     - The accumulate method is called at the end of each batch to calculate the
@@ -17,7 +17,7 @@ class Metric(object):
 
     Metrics are callable like any fuction and take as input:
     ```
-    batch_score = metric(y_true, y_pred)
+    batch_score = metric(y_pred, y_true)
     ```
     where `y_true` are the labels for the batch and `y_pred` are the
     predictions
@@ -30,28 +30,28 @@ class Metric(object):
     def __init__(self, metric_func=None):
         self.metric_func = metric_func
 
-    def __call__(self, y_true, y_pred):
+    def __call__(self, y_pred, y_true):
         """
         Makes the metric a callable function. Used by some metrics to perform
         some overhead work like checking validity of the input, or storing
         values like batch size or input shape.
         """
         # Default metric will just score the predictions
-        return self.score(y_true, y_pred)
+        return self.score(y_pred, y_true)
 
-    def score(self, y_true, y_pred):
+    def score(self, y_pred, y_true):
         """
         Calculates the metric score over a batch of labels and predictions.
 
         Args:
-            y_true: The labels for the batch
             y_pred: The predictions for the batch
+            y_true: The labels for the batch
 
         Returns:
             The metric score calculated over the batch input.
         """
         if self.metric_func is not None:
-            return self.metric_func(y_true, y_pred)
+            return self.metric_func(y_pred, y_true)
         else:
             raise NotImplementedError()
 
@@ -75,11 +75,11 @@ class AverageMetric(Metric):
         self.metric_sum = 0.
         self.sample_count = 0
 
-    def __call__(self, y_true, y_pred):
+    def __call__(self, y_pred, y_true):
         assert y_true.size(0) == y_pred.size(0), "Batch Size of labels and" \
             "predictions must match for AverageMetric."
         self.sample_count += y_pred.size(0)
-        score = self.score(y_true, y_pred)
+        score = self.score(y_pred, y_true)
         self.metric_sum += (score * y_pred.size(0))
         return score
 
