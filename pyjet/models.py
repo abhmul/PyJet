@@ -6,7 +6,7 @@ from torch.autograd import Variable
 from . import backend as J
 from .training import TrainingLogs
 from .metrics import Metric, AverageMetric
-from .callbacks import ProgressBar
+from .callbacks import ProgressBar, CallbackList
 
 python_iterables = {list, set, tuple, frozenset}
 
@@ -143,17 +143,18 @@ class SLModel(nn.Module):
         # Set the model to eval mode
         self.eval()
         callbacks = [ProgressBar(validation_steps)] if verbose > 0 else []
-        [callback.on_train_begin(logs=logs) for callback in callbacks]
-        [callback.on_epoch_begin(0, logs=logs.epoch_logs) for callback in callbacks]
+        callbacks = CallbackList(callbacks)
+        callbacks.on_train_begin(logs=logs)
+        callbacks.on_epoch_begin(0, logs=logs.epoch_logs)
         for step in range(validation_steps):
-            [callback.on_batch_begin(epoch=0, step=step, logs=logs.batch_logs) for callback in callbacks]
+            callbacks.on_batch_begin(epoch=0, step=step, logs=logs.batch_logs)
             x, target = next(val_generator)
             b_metrics, _ = self.validate_on_batch(x, target, metrics)
             for metric, score in zip(metrics, b_metrics):
                 logs.log_metric(metric, score)
-            [callback.on_batch_end(epoch=0, step=step, logs=logs.batch_logs) for callback in callbacks]
-        [callback.on_epoch_end(0, logs=logs.epoch_logs) for callback in callbacks]
-        [callback.on_train_end(logs=logs) for callback in callbacks]
+            callbacks.on_batch_end(epoch=0, step=step, logs=logs.batch_logs)
+        callbacks.on_epoch_end(0, logs=logs.epoch_logs)
+        callbacks.on_train_end(logs=logs)
         return logs.epoch_logs
 
     def fit_generator(self,
@@ -173,11 +174,12 @@ class SLModel(nn.Module):
         optimizers = standardize_list_input(optimizer)
         loss_fn = self.compile_loss(loss_fn)
         metrics = standardize_metric_input(metrics)
+        callbacks = CallbackList(callbacks)
         # If the verbosity is set, set up the progress bar
         if verbose > 0:
             callbacks.append(ProgressBar(steps_per_epoch))
         # Register the model with each callback
-        [callback.set_model(self) for callback in callbacks]
+        callbacks.set_model(self)
         # Save whether we will need to run validation
         run_validation = (validation_steps >
                           0) and validation_generator is not None
@@ -185,7 +187,7 @@ class SLModel(nn.Module):
         logs = TrainingLogs()
 
         # Run the callbacks
-        [callback.on_train_begin(logs=logs) for callback in callbacks]
+        callbacks.on_train_begin(logs=logs)
         # Loop through all the epochs
         for epoch in range(initial_epoch, epochs):
             # Put the model in train mode
@@ -198,11 +200,11 @@ class SLModel(nn.Module):
                     curr=epoch + 1, total=epochs))
             # Run the callbacks
             logs.on_epoch_begin()
-            [callback.on_epoch_begin(epoch, logs=logs.epoch_logs) for callback in callbacks]
+            callbacks.on_epoch_begin(epoch, logs=logs.epoch_logs)
             # Run each step of the epoch with a progress bar
             for step in range(steps_per_epoch):
                 # Run the callbacks
-                [callback.on_batch_begin(epoch=epoch, step=step, logs=logs.batch_logs) for callback in callbacks]
+                callbacks.on_batch_begin(epoch=epoch, step=step, logs=logs.batch_logs)
                 x, target = next(generator)
                 b_loss, b_metrics = self.train_on_batch(
                     x, target, optimizers, loss_fn, metrics)
@@ -211,7 +213,7 @@ class SLModel(nn.Module):
                 for score, metric in zip(b_metrics, metrics):
                     logs.log_metric(metric, score)
                 # Run the callbacks
-                [callback.on_batch_end(epoch=epoch, step=step, logs=logs.batch_logs) for callback in callbacks]
+                callbacks.on_batch_end(epoch=epoch, step=step, logs=logs.batch_logs)
 
             # Check if we need to run validation
             if run_validation:
@@ -226,9 +228,9 @@ class SLModel(nn.Module):
                     logs.log_validation_metric(metric)
             # Run the callbacks
             logs.on_epoch_end()
-            [callback.on_epoch_end(epoch, logs=logs.epoch_logs) for callback in callbacks]
+            callbacks.on_epoch_end(epoch, logs=logs.epoch_logs)
         # Run the callbacks
-        [callback.on_train_end(logs=logs) for callback in callbacks]
+        callbacks.on_train_end(logs=logs)
         # Put the model back in eval mode
         self.eval()
         return logs

@@ -1,4 +1,5 @@
-from collections import defaultdict
+import time
+from collections import deque
 import numpy as np
 import warnings
 from tqdm import tqdm
@@ -8,6 +9,117 @@ try:
 except ImportError:
     matplotlib = None
     plt = None
+
+
+class CallbackList(object):
+    """Container abstracting a list of callbacks.
+    # Arguments
+        callbacks: List of `Callback` instances.
+        queue_length: Queue length for keeping
+            running statistics over callback execution time.
+    """
+
+    def __init__(self, callbacks=None, queue_length=10):
+        callbacks = callbacks or []
+        self.callbacks = [c for c in callbacks]
+        self.queue_length = queue_length
+
+    def append(self, callback):
+        self.callbacks.append(callback)
+
+    def set_params(self, params):
+        for callback in self.callbacks:
+            callback.set_params(params)
+
+    def set_model(self, model):
+        for callback in self.callbacks:
+            callback.set_model(model)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        """Called at the start of an epoch.
+        # Arguments
+            epoch: integer, index of epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_epoch_begin(epoch, logs=logs)
+        self._delta_t_batch = 0.
+        self._delta_ts_batch_begin = deque([], maxlen=self.queue_length)
+        self._delta_ts_batch_end = deque([], maxlen=self.queue_length)
+
+    def on_epoch_end(self, epoch, logs=None):
+        """Called at the end of an epoch.
+        # Arguments
+            epoch: integer, index of epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_epoch_end(epoch, logs=logs)
+
+    def on_batch_begin(self, step, epoch, logs=None):
+        """Called right before processing a batch.
+        # Arguments
+            batch: integer, index of batch within the current epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        t_before_callbacks = time.time()
+        for callback in self.callbacks:
+            callback.on_batch_begin(step, epoch, logs=logs)
+        self._delta_ts_batch_begin.append(time.time() - t_before_callbacks)
+        delta_t_median = np.median(self._delta_ts_batch_begin)
+        if (self._delta_t_batch > 0.
+                and delta_t_median > 0.95 * self._delta_t_batch
+                and delta_t_median > 0.1):
+            warnings.warn('Method on_batch_begin() is slow compared '
+                          'to the batch update (%f). Check your callbacks.' %
+                          delta_t_median)
+        self._t_enter_batch = time.time()
+
+    def on_batch_end(self, step, epoch, logs=None):
+        """Called at the end of a batch.
+        # Arguments
+            batch: integer, index of batch within the current epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        if not hasattr(self, '_t_enter_batch'):
+            self._t_enter_batch = time.time()
+        self._delta_t_batch = time.time() - self._t_enter_batch
+        t_before_callbacks = time.time()
+        for callback in self.callbacks:
+            callback.on_batch_end(step, epoch, logs=logs)
+        self._delta_ts_batch_end.append(time.time() - t_before_callbacks)
+        delta_t_median = np.median(self._delta_ts_batch_end)
+        if (self._delta_t_batch > 0.
+                and (delta_t_median > 0.95 * self._delta_t_batch
+                     and delta_t_median > 0.1)):
+            warnings.warn('Method on_batch_end() is slow compared '
+                          'to the batch update (%f). Check your callbacks.' %
+                          delta_t_median)
+
+    def on_train_begin(self, logs=None):
+        """Called at the beginning of training.
+        # Arguments
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_train_begin(logs=logs)
+
+    def on_train_end(self, logs=None):
+        """Called at the end of training.
+        # Arguments
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_train_end(logs=logs)
+
+    def __iter__(self):
+        return iter(self.callbacks)
 
 
 class Callback(object):
@@ -70,7 +182,6 @@ class ProgressBar(Callback):
         self.progbar = None
 
     def on_epoch_begin(self, epoch, logs=None):
-        logs = {} if logs is None else logs
         # Create a new progress bar for the epoch
         self.progbar = tqdm(total=self.steps)
         self.last_step = 0
@@ -83,11 +194,11 @@ class ProgressBar(Callback):
         self.last_step = step
 
     def on_epoch_end(self, epoch, logs=None):
-        logs = {} if logs is None else logs
         self.epoch_logs = logs
         self.progbar.set_postfix(logs)
         # 0 because we've already finished all steps
         self.progbar.update(0)
+        self.progbar.close()
 
 
 class ModelCheckpoint(Callback):
