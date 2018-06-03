@@ -1,34 +1,31 @@
 import torch
 import torch.nn.functional as F
 
-from .abstract_metrics import Metric
+from .abstract_metrics import AverageMetric
 
 
-class Accuracy(Metric):
+class Accuracy(AverageMetric):
     """
     Computes the accuracy over predictions
 
-    # Arguments
+    Args:
         None
-    # Inputs
-        y_true -- A 1D torch LongTensor of the correct classes
-        y_pred -- A 2D Float Tensor with the predicted probabilites for each
-                  class.
-    # Outputs:
+
+    Returns:
+        An accuracy metric that can maintain its own internal state.
+
+    Inputs:
+        y_true (torch.LongTensor): A 1D torch LongTensor of the correct classes
+        y_pred (torch.FloatTensor): A 2D Float Tensor with the predicted
+            probabilites for each class.
+    Outputs:
         A scalar tensor equal to the accuracy of the y_pred
 
     """
-    def __init__(self):
-        super().__init__()
-        self.correct = 0
-        self.total = 0
-
-    def __call__(self, y_true, y_pred):
+    def score(self, y_true, y_pred):
         # Expect output and target to be B x 1 or B x C or target can be
         # B (with ints from 0 to C-1)
         assert y_pred.dim() == 2, "y_pred should be a 2-dimensional tensor"
-        assert y_pred.size(0) == y_true.size(
-            0), "y_preds and y_trues should have the same number of samples"
         total = y_true.size(0)
         # Turn it into a 1d class encoding
         if y_true.dim() == 2:
@@ -47,19 +44,14 @@ class Accuracy(Metric):
         _, predicted = torch.max(y_pred, 1)
         correct = (predicted == y_true).float().sum(0)
 
-        # Accumulate the statistics
-        self.correct += correct
-        self.total += total
         return (correct / total) * 100.
-
-    def accumulate(self, value=None):
-        return self.correct / self.total
 
 
 class AccuracyWithLogits(Accuracy):
-    def __init__(self):
-        super().__init__()
 
+    """An accuracy metric that takes as input the logits. See `Accuracy` for
+    more details.
+    """
     def __call__(self, y_true, y_pred):
         if y_pred.dim() == 2 and y_pred.size(1) > 1:
             y_pred = F.softmax(y_pred, dim=1)
@@ -71,13 +63,18 @@ class AccuracyWithLogits(Accuracy):
 class TopKAccuracy(Accuracy):
     """Computes the precision@k for the specified values of k
 
-    # Arguments
-        k -- The k to calculate precision@k (topk accuracy)
-    # Inputs
-        y_true -- A 1D torch LongTensor of the correct classes
-        y_pred -- A 2D Float Tensor with the predicted probabilites for each
-                  class.
-    # Outputs:
+    Args:
+        k (int): The k to calculate precision@k (topk accuracy)
+
+    Returns:
+        A TopKAccuracy metric that can maintain its own internal state.
+
+    Inputs:
+        y_true (torch.LongTensor) A 1D torch LongTensor of the correct classes
+        y_pred (torch.FloatTensor) A 2D Float Tensor with the predicted
+            probabilites for each class.
+
+    Outputs:
         A scalar tensor equal to the topk accuracy of the y_pred
 
     """
@@ -86,7 +83,7 @@ class TopKAccuracy(Accuracy):
         super().__init__()
         self.k = k
 
-    def __call__(self, y_true, y_pred):
+    def score(self, y_true, y_pred):
         assert y_true.dim() == y_pred.dim() - 1 == 1
         channel_dim = 1
         batch_size = y_true.size(0)
@@ -106,6 +103,4 @@ class TopKAccuracy(Accuracy):
         correct_k = correct[:self.k].view(-1).float().sum(0)
 
         # Accumulate results
-        self.correct += correct_k
-        self.total += batch_size
-        return 100.0 * correct_k / batch_size
+        return 100. * correct_k / batch_size

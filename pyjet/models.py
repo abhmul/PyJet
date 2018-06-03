@@ -201,10 +201,6 @@ class SLModel(nn.Module):
                     for callback in callbacks
                 ]
                 x, target = next(generator)
-                # if len(generator_output) == 2:
-                # x, target = generator_output
-                # else:
-                # raise ValueError("Generator output had a length of %s" % len(generator_output))
                 b_loss, b_metrics = self.train_on_batch(
                     x, target, optimizers, loss_fn, metrics)
                 # Add stats to the batch_logs

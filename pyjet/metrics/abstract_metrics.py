@@ -5,29 +5,59 @@ class Metric(object):
     - Passing a function of the form `metric(y_true, y_pred)` to an abstract
     metric will use that function to calculate the score on a batch.
 
-    - The accumulate method is called at the end of each batch to `accumulate`
-    the scores over all the previous batches. It receives the calculated
-    score for the batch, but does not need to use itself.
-        - See `AverageMetric` for an example that uses the input value to
-        accumulate.
-        - See `Accuracy` for an example that does not use the input value
-        to accumulate.
+    - The accumulate method is called at the end of each batch to calculate the
+    aggregate score over the entire epoch thus far.
+        - See `AverageMetric` for an example what an accumulate method might
+        look like.
 
     - The reset method is called at the end of each epoch or validation run. It
     simply creates a new version of the metric to reset its internal state and
     returns this reset metric. Feel free to override it with your own reset
     behavior as long as it returns a "reset" version of your metric.
+
+    Metrics are callable like any fuction and take as input:
+    ```
+    batch_score = metric(y_true, y_pred)
+    ```
+    where `y_true` are the labels for the batch and `y_pred` are the
+    predictions
+
+    To implement your own custom metric, override the `score` function and
+    the `accumulate` function. If you just want to average the scores over
+    the epoch, consider using `AverageMetric` and just overriding the `score`
+    function.
     """
     def __init__(self, metric_func=None):
         self.metric_func = metric_func
 
     def __call__(self, y_true, y_pred):
+        """
+        Makes the metric a callable function. Used by some metrics to perform
+        some overhead work like checking validity of the input, or storing
+        values like batch size or input shape.
+        """
+        # Default metric will just score the predictions
+        return self.score(y_true, y_pred)
+
+    def score(self, y_true, y_pred):
+        """
+        Calculates the metric score over a batch of labels and predictions.
+
+        Args:
+            y_true: The labels for the batch
+            y_pred: The predictions for the batch
+
+        Returns:
+            The metric score calculated over the batch input.
+        """
         if self.metric_func is not None:
             return self.metric_func(y_true, y_pred)
         else:
             raise NotImplementedError()
 
-    def accumulate(self, value=None):
+    def accumulate(self):
+        """
+        """
         raise NotImplementedError()
 
     def reset(self):
@@ -43,9 +73,14 @@ class AverageMetric(Metric):
     def __init__(self, metric_func=None):
         super(AverageMetric, self).__init__(metric_func=metric_func)
         self.metric_sum = 0.
-        self.count = 0
+        self.sample_count = 0
 
-    def accumulate(self, value):
-        self.metric_sum += value
-        self.metric_count += 1
-        return self.metric_sum / self.metric_count
+    def __call__(self, y_true, y_pred):
+        assert y_true.size(0) == y_pred.size(0), "Batch Size of labels and" \
+            "predictions must match for AverageMetric."
+        self.sample_count += y_pred.size(0)
+        score = self.score(y_true, y_pred)
+        self.metric_sum += (score * y_pred.size(0))
+
+    def accumulate(self):
+        return self.metric_sum / self.sample_count
