@@ -27,8 +27,11 @@ class Metric(object):
     the epoch, consider using `AverageMetric` and just overriding the `score`
     function.
     """
+
     def __init__(self, metric_func=None):
         self.metric_func = metric_func
+        self.__name__ = self.__class__.__name__.lower() \
+            if metric_func is None else metric_func.__name__
 
     def __call__(self, y_pred, y_true):
         """
@@ -70,6 +73,7 @@ class AverageMetric(Metric):
     by averaging them together. If any function is input into the fit
     function as a metric, it will automatically be considered an AverageMetric.
     """
+
     def __init__(self, metric_func=None):
         super(AverageMetric, self).__init__(metric_func=metric_func)
         self.metric_sum = 0.

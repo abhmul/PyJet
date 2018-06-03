@@ -123,11 +123,10 @@ class SLModel(nn.Module):
                            verbose=0):
         self.cast_model_to_cuda()
         metrics = standardize_metric_input(metrics)
+        print([func.__name__ for func in metrics])
         if loss_fn is not None:
             loss_fn = self.compile_loss(loss_fn)
-            metrics = [
-                loss_fn,
-            ] + metrics
+            metrics = [loss_fn] + metrics
         # Set up the logs
         batch_logs = MetricLogs(metrics)
         # Set the model to eval mode
@@ -211,10 +210,8 @@ class SLModel(nn.Module):
                                                [b_loss] + b_metrics)
                 progbar.update_bar()
                 # Run the callbacks
-                [
-                    callback.on_batch_end(step, train_logs=batch_logs)
-                    for callback in callbacks
-                ]
+                [callback.on_batch_end(step, train_logs=batch_logs)
+                 for callback in callbacks]
 
             # Compute the average stats
             for stat in [loss_fn] + metrics:
@@ -222,6 +219,7 @@ class SLModel(nn.Module):
 
             # Check if we need to run validation
             if run_validation:
+                metrics = [metric.reset() for metric in metrics]
                 val_metrics = self.validate_generator(
                     validation_generator,
                     validation_steps,
@@ -231,6 +229,7 @@ class SLModel(nn.Module):
                     print("\tValidation %s: " % metric_name, metric_score)
                 # Log the loss and metrics
                 val_metric_funcs = [loss_fn] + metrics
+                print([func.__name__ for func in val_metric_funcs])
                 val_scores = [
                     val_metrics[metric_func.__name__]
                     for metric_func in val_metric_funcs
@@ -277,7 +276,8 @@ class SLModel(nn.Module):
             x = next(generator)
             batch_preds = self.predict_on_batch(x)
             # Check to make sure the ndim is the same
-            assert batch_preds.ndim == preds[-1].ndim
+            if len(preds) > 0:
+                assert batch_preds.ndim == preds[-1].ndim
             preds.append(batch_preds)
 
         # Supports variable sized predictions - get the biggest possible shape
@@ -290,7 +290,7 @@ class SLModel(nn.Module):
         # Fill in the predictions array
         cur_pred_ind = 0
         for batch_preds in preds:
-            preds_slice = (slice(cur_pred_ind, len(batch_preds)), ) + tuple(
+            preds_slice = (slice(cur_pred_ind, cur_pred_ind + len(batch_preds)), ) + tuple(
                 slice(batch_preds.shape[i])
                 for i in range(1, batch_preds.ndim))
             full_preds[preds_slice] = batch_preds
