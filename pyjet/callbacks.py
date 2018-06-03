@@ -175,13 +175,17 @@ class Callback(object):
 
 class ProgressBar(Callback):
 
-    def __init__(self, steps):
+    def __init__(self, steps, epochs=0):
         super(ProgressBar, self).__init__()
         self.steps = steps
+        self.epochs = epochs
         self.last_step = 0
         self.progbar = None
 
     def on_epoch_begin(self, epoch, logs=None):
+        if self.epochs:
+            print("Epoch {curr}/{total}".format(curr=epoch + 1,
+                                                total=self.epochs))
         # Create a new progress bar for the epoch
         self.progbar = tqdm(total=self.steps)
         self.last_step = 0

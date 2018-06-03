@@ -177,7 +177,7 @@ class SLModel(nn.Module):
         callbacks = CallbackList(callbacks)
         # If the verbosity is set, set up the progress bar
         if verbose > 0:
-            callbacks.append(ProgressBar(steps_per_epoch))
+            callbacks.append(ProgressBar(steps_per_epoch, epochs=epochs))
         # Register the model with each callback
         callbacks.set_model(self)
         # Save whether we will need to run validation
@@ -195,9 +195,6 @@ class SLModel(nn.Module):
             # Reset the metrics
             loss_fn = loss_fn.reset()
             metrics = [metric.reset() for metric in metrics]
-            if verbose > 0:
-                print("Epoch {curr}/{total}".format(
-                    curr=epoch + 1, total=epochs))
             # Run the callbacks
             logs.on_epoch_begin()
             callbacks.on_epoch_begin(epoch, logs=logs.epoch_logs)
