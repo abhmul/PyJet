@@ -81,6 +81,7 @@ class AverageMetric(Metric):
         self.sample_count += y_pred.size(0)
         score = self.score(y_true, y_pred)
         self.metric_sum += (score * y_pred.size(0))
+        return score
 
     def accumulate(self):
         return self.metric_sum / self.sample_count
