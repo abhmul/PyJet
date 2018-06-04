@@ -13,7 +13,6 @@ from pyjet.models import SLModel
 from pyjet.data import NpDataset
 import pyjet.backend as J
 from pyjet.layers import Conv2D, MaxPooling2D, FullyConnected
-from pyjet.metrics import Accuracy
 from pyjet.callbacks import ModelCheckpoint, Plotter
 
 # Load the dataset
@@ -103,7 +102,7 @@ model.fit_generator(
     loss_fn=nn.CrossEntropyLoss(),
     validation_generator=val_datagen,
     validation_steps=val_datagen.steps_per_epoch,
-    metrics=[Accuracy()],
+    metrics=['accuracy', 'top3_accuracy'],
     callbacks=[best_model, plotter])
 
 # Load the best model

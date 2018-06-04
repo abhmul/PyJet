@@ -8,6 +8,7 @@ from . import backend as J
 from .training import TrainingLogs
 from .metrics import Metric, AverageMetric
 from .callbacks import ProgressBar, CallbackList
+from .registry import load_metric
 
 python_iterables = {list, set, tuple, frozenset}
 
@@ -19,10 +20,16 @@ def standardize_list_input(inputs):
 
 
 def standardize_metric_input(metrics):
-    return [
-        metric if isinstance(metric, Metric) else AverageMetric(metric)
-        for metric in standardize_list_input(metrics)
-    ]
+    old_metrics = standardize_list_input(metrics)
+    metrics = []
+    for metric in old_metrics:
+        if isinstance(metric, str):
+            metrics.append(load_metric(metric))
+        elif isinstance(metric, Metric):
+            metrics.append(metric)
+        else:
+            metrics.append(AverageMetric(metric))
+    return metrics
 
 
 # TODO Not sure whether I'll need to seperate RL models and SL models. Hopefully

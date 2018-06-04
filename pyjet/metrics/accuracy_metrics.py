@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from .abstract_metrics import AverageMetric
+from ..registry import register_metric
 
 
 class Accuracy(AverageMetric):
@@ -78,7 +79,6 @@ class TopKAccuracy(Accuracy):
         A scalar tensor equal to the topk accuracy of the y_pred
 
     """
-
     def __init__(self, k=3):
         super().__init__()
         self.k = k
@@ -104,3 +104,16 @@ class TopKAccuracy(Accuracy):
 
         # Accumulate results
         return 100. * correct_k / batch_size
+
+
+accuracy = Accuracy()
+accuracy_with_logits = AccuracyWithLogits()
+top2_accuracy = TopKAccuracy(2)
+top3_accuracy = TopKAccuracy(3)
+top5_accuracy = TopKAccuracy(5)
+
+register_metric('accuracy', accuracy)
+register_metric('accuracy_with_logits', accuracy_with_logits)
+register_metric('top2_accuracy', top2_accuracy)
+register_metric('top3_accuracy', top3_accuracy)
+register_metric('top5_accuracy', top5_accuracy)

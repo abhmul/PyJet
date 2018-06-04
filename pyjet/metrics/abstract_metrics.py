@@ -1,3 +1,6 @@
+import copy
+
+
 class Metric(object):
     """
     The abstract metric that defines the metric API. Some notes on it:
@@ -11,9 +14,8 @@ class Metric(object):
         look like.
 
     - The reset method is called at the end of each epoch or validation run. It
-    simply creates a new version of the metric to reset its internal state and
-    returns this reset metric. Feel free to override it with your own reset
-    behavior as long as it returns a "reset" version of your metric.
+    simply overwrites the attributes of the metric with its attributes at
+    initialization.
 
     Metrics are callable like any fuction and take as input:
     ```
@@ -27,11 +29,11 @@ class Metric(object):
     the epoch, consider using `AverageMetric` and just overriding the `score`
     function.
     """
-
     def __init__(self, metric_func=None):
         self.metric_func = metric_func
         self.__name__ = self.__class__.__name__.lower() \
             if metric_func is None else metric_func.__name__
+        self.__original_dict__ = None
 
     def __call__(self, y_pred, y_true):
         """
@@ -39,6 +41,9 @@ class Metric(object):
         some overhead work like checking validity of the input, or storing
         values like batch size or input shape.
         """
+        # Save the original dict on the first call
+        if self.__original_dict__ is None:
+            self.__original_dict__ = copy.deepcopy(self.__dict__)
         # Default metric will just score the predictions
         return self.score(y_pred, y_true)
 
@@ -65,7 +70,9 @@ class Metric(object):
         raise NotImplementedError()
 
     def reset(self):
-        return self.__class__(metric_func=self.metric_func)
+        if self.__original_dict__ is not None:
+            self.__dict__ = copy.deepcopy(self.__original_dict__)
+        return self
 
 
 class AverageMetric(Metric):
@@ -74,7 +81,6 @@ class AverageMetric(Metric):
     by averaging them together. If any function is input into the fit
     function as a metric, it will automatically be considered an AverageMetric.
     """
-
     def __init__(self, metric_func=None):
         super(AverageMetric, self).__init__(metric_func=metric_func)
         self.metric_sum = 0.
@@ -83,8 +89,8 @@ class AverageMetric(Metric):
     def __call__(self, y_pred, y_true):
         assert y_true.size(0) == y_pred.size(0), "Batch Size of labels and" \
             "predictions must match for AverageMetric."
-        self.sample_count += y_pred.size(0)
         score = super(AverageMetric, self).__call__(y_pred, y_true)
+        self.sample_count += y_pred.size(0)
         self.metric_sum += (score * y_pred.size(0))
         return score
 
