@@ -49,11 +49,11 @@ class SLModel(nn.Module):
             return self.loss_in
         raise NotImplementedError()
 
-    def cast_input_to_torch(self, x, volatile=False):
-        return Variable(J.from_numpy(x), volatile=volatile)
+    def cast_input_to_torch(self, x):
+        return Variable(J.from_numpy(x))
 
-    def cast_target_to_torch(self, y, volatile=False):
-        return Variable(J.from_numpy(y), volatile=volatile)
+    def cast_target_to_torch(self, y):
+        return Variable(J.from_numpy(y))
 
     def cast_output_to_numpy(self, preds):
         return preds.data.cpu().numpy()
@@ -120,22 +120,23 @@ class SLModel(nn.Module):
     def validate_on_batch(self, x, target, metrics):
         self.cast_model_to_cuda()
         self.eval()
-        # Cast inputs to a torch variable and set to volatile for inference
-        torch_x = self.cast_input_to_torch(x, volatile=True)
-        torch_target = self.cast_target_to_torch(target, volatile=True)
-        # Make the prediction
-        torch_preds = self(torch_x)
-        preds = self.cast_output_to_numpy(torch_preds)
-        # Calculate the metrics
-        metric_scores = [
-            metric(torch_preds, torch_target) for metric in metrics
-        ]
-        # Clean up some variables
-        del torch_x
-        del torch_preds
-        del torch_target
-        if J.use_cuda:
-            torch.cuda.empty_cache()
+        with torch.no_grad():
+            # Cast inputs to a torch variable and set to volatile for inference
+            torch_x = self.cast_input_to_torch(x)
+            torch_target = self.cast_target_to_torch(target)
+            # Make the prediction
+            torch_preds = self(torch_x)
+            preds = self.cast_output_to_numpy(torch_preds)
+            # Calculate the metrics
+            metric_scores = [
+                metric(torch_preds, torch_target) for metric in metrics
+            ]
+            # Clean up some variables
+            del torch_x
+            del torch_preds
+            del torch_target
+            if J.use_cuda:
+                torch.cuda.empty_cache()
         return metric_scores, preds
 
     def validate_generator(self,
@@ -248,16 +249,17 @@ class SLModel(nn.Module):
     def predict_on_batch(self, x):
         self.cast_model_to_cuda()
         self.eval()
-        # Cast inputs to a torch variable and set to volatile for inference
-        torch_x = self.cast_input_to_torch(x, volatile=True)
-        # Make the prediction
-        torch_preds = self(torch_x)
-        preds = self.cast_output_to_numpy(torch_preds)
-        self.zero_grad()
-        del torch_x
-        del torch_preds
-        if J.use_cuda:
-            torch.cuda.empty_cache()
+        with torch.no_grad():
+            # Cast inputs to a torch variable and set to volatile for inference
+            torch_x = self.cast_input_to_torch(x)
+            # Make the prediction
+            torch_preds = self(torch_x)
+            preds = self.cast_output_to_numpy(torch_preds)
+            self.zero_grad()
+            del torch_x
+            del torch_preds
+            if J.use_cuda:
+                torch.cuda.empty_cache()
         # cast to numpy and return
         return preds
 
