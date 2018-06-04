@@ -1,11 +1,14 @@
 import numpy as np
 import torch
+from tqdm import tqdm
 import torch.nn as nn
 from torch.autograd import Variable
 
 from . import backend as J
-from .training import ProgBar, MetricLogs
-
+from .training import TrainingLogs
+from .metrics import Metric, AverageMetric
+from .callbacks import ProgressBar, CallbackList
+from .registry import load_metric
 
 python_iterables = {list, set, tuple, frozenset}
 
@@ -16,10 +19,22 @@ def standardize_list_input(inputs):
     return [inputs]
 
 
+def standardize_metric_input(metrics):
+    old_metrics = standardize_list_input(metrics)
+    metrics = []
+    for metric in old_metrics:
+        if isinstance(metric, str):
+            metrics.append(load_metric(metric))
+        elif isinstance(metric, Metric):
+            metrics.append(metric)
+        else:
+            metrics.append(AverageMetric(metric))
+    return metrics
+
+
 # TODO Not sure whether I'll need to seperate RL models and SL models. Hopefully
 # I planned this out right
 class SLModel(nn.Module):
-
     def __init__(self, torch_module=None):
         super(SLModel, self).__init__()
         self.to_cuda = J.use_cuda
@@ -52,10 +67,27 @@ class SLModel(nn.Module):
     def compile_loss(self, loss_fn):
         def loss(preds, targets):
             # Preds are not used, just works as metric)
-            return loss_fn(*standardize_list_input(self.loss_in), targets, **self.loss_kwargs)
-        return loss
+            return loss_fn(*standardize_list_input(self.loss_in), targets,
+                           **self.loss_kwargs)
+
+        return AverageMetric(loss)
 
     def train_on_batch(self, x, target, optimizers, loss_fn, metrics=()):
+        """
+        Trains the SLModel on a single batch of data.
+
+        Args:
+            x: A batch of input into the model.
+            target: The corresponding labels for the batch x.
+            optimizers: A list of optimizers to run with the model.
+            loss_fn: The loss function to run on the model
+            metrics: A list of metrics to calculate on the output of the model
+
+        Returns:
+            A tuple where the first element is the loss over the batch and the
+            second element is a list of the scores corresponding to the input
+            metrics.
+        """
         self.cast_model_to_cuda()
         self.train()
         # Cast inputs to a torch variable
@@ -73,11 +105,11 @@ class SLModel(nn.Module):
         loss.backward()
         [optimizer.step() for optimizer in optimizers]
         # Calculate the metrics
-        metric_scores = [metric(torch_preds, torch_target).item()
-                         for metric in metrics]
+        metric_scores = [
+            metric(torch_preds, torch_target) for metric in metrics
+        ]
         # Clean up some variables
         self.zero_grad()
-        loss = loss.item()
         del torch_x
         del torch_target
         del torch_preds
@@ -95,127 +127,123 @@ class SLModel(nn.Module):
         torch_preds = self(torch_x)
         preds = self.cast_output_to_numpy(torch_preds)
         # Calculate the metrics
-        metric_vals = [metric(torch_preds, torch_target).item() for metric in metrics]
+        metric_scores = [
+            metric(torch_preds, torch_target) for metric in metrics
+        ]
         # Clean up some variables
         del torch_x
         del torch_preds
         del torch_target
         if J.use_cuda:
             torch.cuda.empty_cache()
-        return metric_vals, preds
+        return metric_scores, preds
 
-    def validate_generator(self, val_generator, validation_steps, loss_fn=None, metrics=(), np_metrics=(),
+    def validate_generator(self,
+                           val_generator,
+                           validation_steps,
+                           loss_fn=None,
+                           metrics=(),
                            verbose=0):
         self.cast_model_to_cuda()
-        metrics = standardize_list_input(metrics)
-        np_metrics = standardize_list_input(np_metrics)
+        metrics = standardize_metric_input(metrics)
+        print([func.__name__ for func in metrics])
         if loss_fn is not None:
             loss_fn = self.compile_loss(loss_fn)
-            metrics = [loss_fn, ] + metrics
+            metrics = [loss_fn] + metrics
         # Set up the logs
-        batch_logs = MetricLogs(metrics)
+        logs = TrainingLogs()
         # Set the model to eval mode
         self.eval()
-        preds = []
-        targets = []
-        progbar = ProgBar(verbosity=verbose)
-        for step in progbar(validation_steps):
+        callbacks = [ProgressBar(validation_steps)] if verbose > 0 else []
+        callbacks = CallbackList(callbacks)
+        callbacks.on_train_begin(logs=logs)
+        callbacks.on_epoch_begin(0, logs=logs.epoch_logs)
+        for step in range(validation_steps):
+            callbacks.on_batch_begin(epoch=0, step=step, logs=logs.batch_logs)
             x, target = next(val_generator)
-            b_metrics, b_preds = self.validate_on_batch(x, target, metrics)
-            batch_logs.update_logs(metrics, b_metrics)
-            if len(np_metrics):
-                preds.append(b_preds)
-                targets.append(target)
-        # Compute the np preds over the whole prediction set
-        torch_metric_vals = {metric.__name__: batch_logs.average(metric) for metric in metrics}
-        # No-op if np_metrics is not given
-        if len(np_metrics):
-            preds = np.concatenate(preds, axis=0)
-            targets = np.concatenate(targets, axis=0)
-        np_metric_vals = {metric.__name__: metric(preds, targets) for metric in np_metrics}
-        return {**torch_metric_vals, **np_metric_vals}
+            b_metrics, _ = self.validate_on_batch(x, target, metrics)
+            for metric, score in zip(metrics, b_metrics):
+                logs.log_metric(metric, score)
+            callbacks.on_batch_end(epoch=0, step=step, logs=logs.batch_logs)
+        callbacks.on_epoch_end(0, logs=logs.epoch_logs)
+        callbacks.on_train_end(logs=logs)
+        return logs.epoch_logs
 
-    def fit_generator(self, generator, steps_per_epoch, epochs, optimizer,
-                      loss_fn, validation_generator=None, validation_steps=0,
-                      metrics=(), np_metrics=(), callbacks=(), initial_epoch=0,
+    def fit_generator(self,
+                      generator,
+                      steps_per_epoch,
+                      epochs,
+                      optimizer,
+                      loss_fn,
+                      validation_generator=None,
+                      validation_steps=0,
+                      metrics=(),
+                      callbacks=(),
+                      initial_epoch=0,
                       verbose=1):
         self.cast_model_to_cuda()
+        # Standardize the input
         optimizers = standardize_list_input(optimizer)
-        metrics = standardize_list_input(metrics)
-        np_metrics = standardize_list_input(np_metrics)
         loss_fn = self.compile_loss(loss_fn)
+        metrics = standardize_metric_input(metrics)
+        callbacks = CallbackList(callbacks)
+        # If the verbosity is set, set up the progress bar
+        if verbose > 0:
+            callbacks.append(ProgressBar(steps_per_epoch, epochs=epochs))
         # Register the model with each callback
-        [callback.set_model(self) for callback in callbacks]
+        callbacks.set_model(self)
         # Save whether we will need to run validation
         run_validation = (validation_steps >
                           0) and validation_generator is not None
-        # Set up the logs\
-        train_logs = MetricLogs([loss_fn] + metrics)
-        val_logs = MetricLogs([loss_fn] + metrics + np_metrics)
+        logs = TrainingLogs()
+
         # Run the callbacks
-        [callback.on_train_begin(train_logs=train_logs, val_logs=val_logs)
-         for callback in callbacks]
+        callbacks.on_train_begin(logs=logs)
         # Loop through all the epochs
         for epoch in range(initial_epoch, epochs):
             # Put the model in train mode
             self.train()
-            if verbose > 0:
-                print("Epoch {curr}/{total}".format(curr=epoch + 1, total=epochs))
-            # Setup the progress bar
-            progbar = ProgBar(verbosity=verbose)
-            # Setup the batch logs
-            batch_logs = MetricLogs([loss_fn] + metrics)
+            # Reset the metrics
+            loss_fn = loss_fn.reset()
+            metrics = [metric.reset() for metric in metrics]
             # Run the callbacks
-            [callback.on_epoch_begin(epoch, train_logs=train_logs, val_logs=val_logs)
-             for callback in callbacks]
+            logs.on_epoch_begin()
+            callbacks.on_epoch_begin(epoch, logs=logs.epoch_logs)
             # Run each step of the epoch with a progress bar
-            for step in progbar(steps_per_epoch):
+            for step in range(steps_per_epoch):
                 # Run the callbacks
-                [callback.on_batch_begin(step, train_logs=batch_logs)
-                 for callback in callbacks]
+                callbacks.on_batch_begin(
+                    epoch=epoch, step=step, logs=logs.batch_logs)
                 x, target = next(generator)
-                # if len(generator_output) == 2:
-                # x, target = generator_output
-                # else:
-                # raise ValueError("Generator output had a length of %s" % len(generator_output))
                 b_loss, b_metrics = self.train_on_batch(
                     x, target, optimizers, loss_fn, metrics)
-                # Add stats to the batch_logs
-                batch_logs.update_logs(
-                    [loss_fn] + metrics, [b_loss] + b_metrics)
-                # Add the stats to the progress bar
-                progbar.update_stats_from_func(
-                    [loss_fn] + metrics, [b_loss] + b_metrics)
-                progbar.update_bar()
+                # Add stats to the logs
+                logs.log_metric(loss_fn, b_loss)
+                for score, metric in zip(b_metrics, metrics):
+                    logs.log_metric(metric, score)
                 # Run the callbacks
-                [callback.on_batch_end(step, train_logs=batch_logs)
-                 for callback in callbacks]
-
-            # Compute the average stats
-            for stat in [loss_fn] + metrics:
-                train_logs.update_log(stat, batch_logs.average(stat))
+                callbacks.on_batch_end(
+                    epoch=epoch, step=step, logs=logs.batch_logs)
 
             # Check if we need to run validation
             if run_validation:
-                val_metrics = self.validate_generator(
-                    validation_generator, validation_steps, metrics=([loss_fn] + metrics), np_metrics=np_metrics)
-                print("\tValidation Loss: ", val_metrics['loss'])
-                for metric_name, metric_score in val_metrics.items():
-                    print("\tValidation %s: " % metric_name, metric_score)
+                loss_fn = loss_fn.reset()
+                metrics = [metric.reset() for metric in metrics]
+                self.validate_generator(
+                    validation_generator,
+                    validation_steps,
+                    metrics=([loss_fn] + metrics))
                 # Log the loss and metrics
-                val_metric_funcs = [loss_fn] + metrics + np_metrics
-                val_scores = [val_metrics[metric_func.__name__]
-                              for metric_func in val_metric_funcs]
-                val_logs.update_logs(val_metric_funcs, val_scores)
+                for metric in [loss_fn] + metrics:
+                    logs.log_validation_metric(metric)
             # Run the callbacks
-            [callback.on_epoch_end(epoch, train_logs=train_logs, val_logs=val_logs)
-             for callback in callbacks]
+            logs.on_epoch_end()
+            callbacks.on_epoch_end(epoch, logs=logs.epoch_logs)
         # Run the callbacks
-        [callback.on_train_end(train_logs=train_logs, val_logs=val_logs)
-         for callback in callbacks]
+        callbacks.on_train_end(logs=logs)
         # Put the model back in eval mode
         self.eval()
-        return train_logs, val_logs
+        return logs
 
     def predict_on_batch(self, x):
         self.cast_model_to_cuda()
@@ -238,23 +266,29 @@ class SLModel(nn.Module):
         self.eval()
         preds = []
         # Loop through all the steps
-        progbar = ProgBar(verbosity=verbose)
-        for step in progbar(prediction_steps):
+        progbar = tqdm if verbose > 0 else lambda x: x
+        for _ in progbar(range(prediction_steps)):
             x = next(generator)
             batch_preds = self.predict_on_batch(x)
             # Check to make sure the ndim is the same
-            assert batch_preds.ndim == preds[-1].ndim
+            if len(preds) > 0:
+                assert batch_preds.ndim == preds[-1].ndim
             preds.append(batch_preds)
 
         # Supports variable sized predictions - get the biggest possible shape
         num_preds = sum(len(batch_preds) for batch_preds in preds)
-        max_shape = [num_preds] + [max(preds[n].shape[i] for n in range(len(preds))) for i in range(1, preds[0].ndim)]
+        max_shape = [num_preds] + [
+            max(preds[n].shape[i] for n in range(len(preds)))
+            for i in range(1, preds[0].ndim)
+        ]
         full_preds = np.zeros(max_shape, dtype=preds[0].dtype)
         # Fill in the predictions array
         cur_pred_ind = 0
         for batch_preds in preds:
-            preds_slice = (slice(cur_pred_ind, len(batch_preds)),) + tuple(
-                slice(batch_preds.shape[i]) for i in range(1, batch_preds.ndim))
+            preds_slice = (slice(cur_pred_ind,
+                                 cur_pred_ind + len(batch_preds)), ) + tuple(
+                                     slice(batch_preds.shape[i])
+                                     for i in range(1, batch_preds.ndim))
             full_preds[preds_slice] = batch_preds
             cur_pred_ind += len(batch_preds)
 

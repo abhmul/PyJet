@@ -1,11 +1,125 @@
+import time
+from collections import deque
 import numpy as np
 import warnings
+from tqdm import tqdm
 try:
     import matplotlib
     import matplotlib.pyplot as plt
 except ImportError:
     matplotlib = None
     plt = None
+
+
+class CallbackList(object):
+    """Container abstracting a list of callbacks.
+    # Arguments
+        callbacks: List of `Callback` instances.
+        queue_length: Queue length for keeping
+            running statistics over callback execution time.
+    """
+
+    def __init__(self, callbacks=None, queue_length=10):
+        callbacks = callbacks or []
+        self.callbacks = [c for c in callbacks]
+        self.queue_length = queue_length
+
+    def append(self, callback):
+        self.callbacks.append(callback)
+
+    def set_params(self, params):
+        for callback in self.callbacks:
+            callback.set_params(params)
+
+    def set_model(self, model):
+        for callback in self.callbacks:
+            callback.set_model(model)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        """Called at the start of an epoch.
+        # Arguments
+            epoch: integer, index of epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_epoch_begin(epoch, logs=logs)
+        self._delta_t_batch = 0.
+        self._delta_ts_batch_begin = deque([], maxlen=self.queue_length)
+        self._delta_ts_batch_end = deque([], maxlen=self.queue_length)
+
+    def on_epoch_end(self, epoch, logs=None):
+        """Called at the end of an epoch.
+        # Arguments
+            epoch: integer, index of epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_epoch_end(epoch, logs=logs)
+
+    def on_batch_begin(self, step, epoch, logs=None):
+        """Called right before processing a batch.
+        # Arguments
+            batch: integer, index of batch within the current epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        t_before_callbacks = time.time()
+        for callback in self.callbacks:
+            callback.on_batch_begin(step, epoch, logs=logs)
+        self._delta_ts_batch_begin.append(time.time() - t_before_callbacks)
+        delta_t_median = np.median(self._delta_ts_batch_begin)
+        if (self._delta_t_batch > 0.
+                and delta_t_median > 0.95 * self._delta_t_batch
+                and delta_t_median > 0.1):
+            warnings.warn('Method on_batch_begin() is slow compared '
+                          'to the batch update (%f). Check your callbacks.' %
+                          delta_t_median)
+        self._t_enter_batch = time.time()
+
+    def on_batch_end(self, step, epoch, logs=None):
+        """Called at the end of a batch.
+        # Arguments
+            batch: integer, index of batch within the current epoch.
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        if not hasattr(self, '_t_enter_batch'):
+            self._t_enter_batch = time.time()
+        self._delta_t_batch = time.time() - self._t_enter_batch
+        t_before_callbacks = time.time()
+        for callback in self.callbacks:
+            callback.on_batch_end(step, epoch, logs=logs)
+        self._delta_ts_batch_end.append(time.time() - t_before_callbacks)
+        delta_t_median = np.median(self._delta_ts_batch_end)
+        if (self._delta_t_batch > 0.
+                and (delta_t_median > 0.95 * self._delta_t_batch
+                     and delta_t_median > 0.1)):
+            warnings.warn('Method on_batch_end() is slow compared '
+                          'to the batch update (%f). Check your callbacks.' %
+                          delta_t_median)
+
+    def on_train_begin(self, logs=None):
+        """Called at the beginning of training.
+        # Arguments
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_train_begin(logs=logs)
+
+    def on_train_end(self, logs=None):
+        """Called at the end of training.
+        # Arguments
+            logs: dictionary of logs.
+        """
+        logs = {} if logs is None else logs
+        for callback in self.callbacks:
+            callback.on_train_end(logs=logs)
+
+    def __iter__(self):
+        return iter(self.callbacks)
 
 
 class Callback(object):
@@ -40,23 +154,55 @@ class Callback(object):
     def set_model(self, model):
         self.model = model
 
-    def on_epoch_begin(self, epoch, train_logs=None, val_logs=None):
+    def on_epoch_begin(self, epoch, logs=None):
         pass
 
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
+    def on_epoch_end(self, epoch, logs=None):
         pass
 
-    def on_batch_begin(self, batch, train_logs=None, val_logs=None):
+    def on_batch_begin(self, step, epoch, logs=None):
         pass
 
-    def on_batch_end(self, batch, train_logs=None, val_logs=None):
+    def on_batch_end(self, step, epoch, logs=None):
         pass
 
-    def on_train_begin(self, train_logs=None, val_logs=None):
+    def on_train_begin(self, logs=None):
         pass
 
-    def on_train_end(self, train_logs=None, val_logs=None):
+    def on_train_end(self, logs=None):
         pass
+
+
+class ProgressBar(Callback):
+
+    def __init__(self, steps, epochs=0):
+        super(ProgressBar, self).__init__()
+        self.steps = steps
+        self.epochs = epochs
+        self.last_step = 0
+        self.progbar = None
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if self.epochs:
+            print("Epoch {curr}/{total}".format(curr=epoch + 1,
+                                                total=self.epochs))
+        # Create a new progress bar for the epoch
+        self.progbar = tqdm(total=self.steps)
+        self.last_step = 0
+        # Store the logs for updating the postfix
+        self.epoch_logs = logs
+
+    def on_batch_end(self, step, epoch, logs=None):
+        self.progbar.set_postfix(self.epoch_logs)
+        self.progbar.update(step - self.last_step)
+        self.last_step = step
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.epoch_logs = logs
+        self.progbar.set_postfix(logs)
+        # 0 because we've already finished all steps
+        self.progbar.update(0)
+        self.progbar.close()
 
 
 class ModelCheckpoint(Callback):
@@ -89,12 +235,11 @@ class ModelCheckpoint(Callback):
         period: Interval (number of epochs) between checkpoints.
     """
 
-    def __init__(self, filepath, monitor, monitor_val=True, verbose=0,
+    def __init__(self, filepath, monitor, verbose=0,
                  save_best_only=False,
                  mode='auto', period=1):
         super(ModelCheckpoint, self).__init__()
         self.monitor = monitor
-        self.monitor_val = monitor_val
         self.verbose = verbose
         self.filepath = filepath
         self.save_best_only = save_best_only
@@ -121,15 +266,14 @@ class ModelCheckpoint(Callback):
                 self.monitor_op = np.less
                 self.best = np.Inf
 
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        logs = val_logs if self.monitor_val else train_logs
+    def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
         self.epochs_since_last_save += 1
         if self.epochs_since_last_save >= self.period:
             self.epochs_since_last_save = 0
             filepath = self.filepath.format(epoch=epoch)
             if self.save_best_only:
-                current = logs[self.monitor][-1]
+                current = logs[self.monitor]
                 if current is None:
                     warnings.warn('Can save best model only with %s available, '
                                   'skipping.' % self.monitor, RuntimeWarning)
@@ -175,19 +319,18 @@ class Plotter(Callback):
         self.y_val = []
         self.ion = self.plot_during_train
 
-    def on_train_end(self, train_logs=None, val_logs=None):
+    def on_train_end(self, logs=None):
         if self.plot_during_train:
             plt.ioff()
         if self.block_on_end:
             plt.show()
         return
 
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        train_logs = train_logs or {}
-        val_logs = val_logs or {}
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
         self.x.append(len(self.x))
-        self.y_train.append(train_logs[self.monitor][-1])
-        self.y_val.append(val_logs[self.monitor][-1])
+        self.y_train.append(logs[self.monitor])
+        self.y_val.append(logs["val_" + self.monitor])
         self.ax.clear()
         # # Set up the plot
         self.fig.suptitle(self.title)
@@ -199,7 +342,7 @@ class Plotter(Callback):
         if self.ion:
             plt.ion()
             self.ion = False
-            
+
         self.fig.canvas.draw()
         # plt.pause(0.5)
         if self.save_to_file is not None:
@@ -363,4 +506,3 @@ class LRScheduler(Callback):
             param_group['lr'] = new_lr
         if self.verbose > 0:
             print('\nEpoch %05d: LRScheduler setting lr to %s.' % (epoch + 1, new_lr))
-

@@ -107,3 +107,5 @@ data/raw/
 *.state
 
 \.idea/
+
+mnist_py3k.pkl.gz
