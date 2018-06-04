@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from tqdm import tqdm
 import torch.nn as nn
 from torch.autograd import Variable
 
@@ -97,7 +98,9 @@ class SLModel(nn.Module):
         loss.backward()
         [optimizer.step() for optimizer in optimizers]
         # Calculate the metrics
-        metric_scores = [metric(torch_preds, torch_target) for metric in metrics]
+        metric_scores = [
+            metric(torch_preds, torch_target) for metric in metrics
+        ]
         # Clean up some variables
         self.zero_grad()
         del torch_x
@@ -117,7 +120,9 @@ class SLModel(nn.Module):
         torch_preds = self(torch_x)
         preds = self.cast_output_to_numpy(torch_preds)
         # Calculate the metrics
-        metric_scores = [metric(torch_preds, torch_target) for metric in metrics]
+        metric_scores = [
+            metric(torch_preds, torch_target) for metric in metrics
+        ]
         # Clean up some variables
         del torch_x
         del torch_preds
@@ -183,7 +188,6 @@ class SLModel(nn.Module):
         # Save whether we will need to run validation
         run_validation = (validation_steps >
                           0) and validation_generator is not None
-        # Set up the logs
         logs = TrainingLogs()
 
         # Run the callbacks
@@ -201,7 +205,8 @@ class SLModel(nn.Module):
             # Run each step of the epoch with a progress bar
             for step in range(steps_per_epoch):
                 # Run the callbacks
-                callbacks.on_batch_begin(epoch=epoch, step=step, logs=logs.batch_logs)
+                callbacks.on_batch_begin(
+                    epoch=epoch, step=step, logs=logs.batch_logs)
                 x, target = next(generator)
                 b_loss, b_metrics = self.train_on_batch(
                     x, target, optimizers, loss_fn, metrics)
@@ -210,7 +215,8 @@ class SLModel(nn.Module):
                 for score, metric in zip(b_metrics, metrics):
                     logs.log_metric(metric, score)
                 # Run the callbacks
-                callbacks.on_batch_end(epoch=epoch, step=step, logs=logs.batch_logs)
+                callbacks.on_batch_end(
+                    epoch=epoch, step=step, logs=logs.batch_logs)
 
             # Check if we need to run validation
             if run_validation:
@@ -253,8 +259,8 @@ class SLModel(nn.Module):
         self.eval()
         preds = []
         # Loop through all the steps
-        progbar = ProgBar(verbosity=verbose)
-        for step in progbar(prediction_steps):
+        progbar = tqdm if verbose > 0 else lambda x: x
+        for _ in progbar(range(prediction_steps)):
             x = next(generator)
             batch_preds = self.predict_on_batch(x)
             # Check to make sure the ndim is the same
@@ -272,9 +278,10 @@ class SLModel(nn.Module):
         # Fill in the predictions array
         cur_pred_ind = 0
         for batch_preds in preds:
-            preds_slice = (slice(cur_pred_ind, cur_pred_ind + len(batch_preds)), ) + tuple(
-                slice(batch_preds.shape[i])
-                for i in range(1, batch_preds.ndim))
+            preds_slice = (slice(cur_pred_ind,
+                                 cur_pred_ind + len(batch_preds)), ) + tuple(
+                                     slice(batch_preds.shape[i])
+                                     for i in range(1, batch_preds.ndim))
             full_preds[preds_slice] = batch_preds
             cur_pred_ind += len(batch_preds)
 
