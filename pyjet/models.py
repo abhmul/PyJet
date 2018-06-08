@@ -68,12 +68,13 @@ class SLModel(nn.Module):
     def loss(self, targets):
         return self.loss_manager.loss(self, targets)
 
-    def add_loss(self, loss_fn, *inputs, weight=1.0, name=None):
+    def add_loss(self, loss_fn, inputs=(), weight=1.0, name=None):
+        inputs = standardize_list_input(inputs)
         # Use 'loss_in' if no inputs provided
         if not len(inputs):
             inputs = ['loss_in']
         return self.loss_manager.add_loss(loss_fn,
-                                          *inputs,
+                                          inputs,
                                           weight=weight,
                                           name=name)
 

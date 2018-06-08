@@ -174,8 +174,7 @@ class LossManager(object):
             name = self.__loss_names[0]
         return self.__loss_scores[name]
 
-    # TODO: Thoughts on changing inputs to a list instead?
-    def add_loss(self, loss_fn, *inputs, weight=1.0, name=None):
+    def add_loss(self, loss_fn, inputs, weight=1.0, name=None):
         if name is None:
             name = "loss_{}".format(len(self.__loss_dict))
         self.__loss_dict[name] = loss_fn
