@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -5,7 +6,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from . import backend as J
-from .training import TrainingLogs
+from .training import TrainingLogs, LossManager
 from .metrics import Metric, AverageMetric
 from .callbacks import ProgressBar, CallbackList
 from .registry import load_metric
@@ -39,9 +40,9 @@ class SLModel(nn.Module):
         super(SLModel, self).__init__()
         self.to_cuda = J.use_cuda
         self.loss_in = []
-        self.loss_kwargs = {}
-        self.aux_loss = []
         self.torch_module = torch_module
+
+        self.loss_manager = LossManager()
 
     def forward(self, *inputs, **kwargs):
         if self.torch_module is not None:
@@ -64,13 +65,80 @@ class SLModel(nn.Module):
             self.to_cuda = False
         return
 
-    def compile_loss(self, loss_fn):
+    def loss(self, targets):
+        return self.loss_manager.loss(self, targets)
+
+    def add_loss(self, loss_fn, *inputs, weight=1.0, name=None):
+        # Use 'loss_in' if no inputs provided
+        if not len(inputs):
+            inputs = ['loss_in']
+        return self.loss_manager.add_loss(loss_fn,
+                                          *inputs,
+                                          weight=weight,
+                                          name=name)
+
+    def remove_loss(self, name=None):
+        return self.loss_manager.remove_loss(name=name)
+
+    def clear_losses(self):
+        self.loss_manager.clear_losses()
+
+    def compile_loss(self, loss_fn=None):
+        """
+        This is a function to standardize loss input and hack it to behave like
+        a metric. A few key notes to remember:
+            - If the loss_fn is None, it will just use the loss method
+              defined by the model. This by default comes from the loss manager
+              which is modified by the add_loss, remove_loss, and clear_losses
+              methods. If a loss_fn is provided, then this method will clear
+              all current losses from the loss manager and add the input loss
+              function to it, taking as input the default "loss_in" parameter.
+              If you override the model's loss function, then passing a loss_fn
+              will have no effect!
+            - If there is more than one loss in the loss manager, then this
+              function will also return metric versions of all the auxilary
+              losses. The overall loss function is only computed once,
+              the auxilary loss scores are taken from loss cache.
+
+        Args:
+            loss_fn: The loss function to compile. Defaults to None. See above
+                note for explanation of behavior when None and when not None.
+
+        Returns:
+            (tuple): All the relevant loss functions in a tuple. See above note
+                for more explanation about how this return value is determined
+        """
+        # if loss_fn is defined, clear the losses, and set it to the input
+        # loss_fn
+        if loss_fn is not None:
+            if len(self.loss_manager):
+                warnings.warn("Loss manager is not empty, but loss_fn passed "
+                              "passed to fit_generator or validate_generator."
+                              " Clearing all past losses.")
+                self.clear_losses()
+                self.add_loss(loss_fn)
+
+        # Compile the main loss
         def loss(preds, targets):
             # Preds are not used, just works as metric)
-            return loss_fn(*standardize_list_input(self.loss_in), targets,
-                           **self.loss_kwargs)
+            return self.loss(targets)
 
-        return AverageMetric(loss)
+        # Compile the auxilary losses, the main loss must be called before
+        # the auxilary losses
+        aux_losses = []
+        # Only account for auxilary losses if there is more than one loss
+        if len(self.loss_manager) > 1:
+            for name in self.loss_manager.names:
+                def aux_loss(preds, targets):
+                    # Preds are not used, just hack to make it behave like
+                    # metric
+                    return self.loss_manager.get_loss_score(name)
+            metric_aux_loss = AverageMetric(aux_loss)
+            # Change the name for logging
+            metric_aux_loss.__name__ = name
+            aux_losses.append(metric_aux_loss)
+
+        return (AverageMetric(loss), *aux_losses)
 
     def train_on_batch(self, x, target, optimizers, loss_fn, metrics=()):
         """
@@ -97,9 +165,6 @@ class SLModel(nn.Module):
         torch_preds = self(torch_x)
         # Calculate the loss
         loss = loss_fn(torch_preds, torch_target)
-        # Add in the auxilary losses if there are any
-        if self.aux_loss:
-            loss += sum(aux_loss(torch_target) for aux_loss in self.aux_loss)
         # Update the weights
         [optimizer.zero_grad() for optimizer in optimizers]
         loss.backward()
@@ -147,10 +212,9 @@ class SLModel(nn.Module):
                            verbose=0):
         self.cast_model_to_cuda()
         metrics = standardize_metric_input(metrics)
-        print([func.__name__ for func in metrics])
-        if loss_fn is not None:
-            loss_fn = self.compile_loss(loss_fn)
-            metrics = [loss_fn] + metrics
+        if loss_fn is not None or len(self.loss_manager):
+            loss_fn, *aux_loss_fns = self.compile_loss(loss_fn)
+            metrics = [loss_fn] + metrics + aux_loss_fns
         # Set up the logs
         logs = TrainingLogs()
         # Set the model to eval mode
@@ -175,7 +239,7 @@ class SLModel(nn.Module):
                       steps_per_epoch,
                       epochs,
                       optimizer,
-                      loss_fn,
+                      loss_fn=None,
                       validation_generator=None,
                       validation_steps=0,
                       metrics=(),
@@ -185,8 +249,8 @@ class SLModel(nn.Module):
         self.cast_model_to_cuda()
         # Standardize the input
         optimizers = standardize_list_input(optimizer)
-        loss_fn = self.compile_loss(loss_fn)
-        metrics = standardize_metric_input(metrics)
+        loss_fn, *aux_loss_fns = self.compile_loss(loss_fn)
+        metrics = standardize_metric_input(metrics) + aux_loss_fns
         callbacks = CallbackList(callbacks)
         # If the verbosity is set, set up the progress bar
         if verbose > 0:

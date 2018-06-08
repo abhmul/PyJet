@@ -1,9 +1,11 @@
 from . import data
+from . import utils
 
 import logging
 import time
 import queue
 import threading
+import copy
 
 
 class GeneratorEnqueuer(data.BatchGenerator):
@@ -115,3 +117,82 @@ class TrainingLogs(dict):
 
     def log_validation_metric(self, metric):
         self.epoch_logs["val_" + metric.__name__] = metric.accumulate().item()
+
+
+class LossManager(object):
+
+    @utils.resettable
+    def __init__(self):
+        self.__loss_names = []
+        self.__loss_input_dict = {}
+        self.__loss_weight_dict = {}
+        self.__loss_dict = {}
+        self.__verify_loss_args = True
+        self.__loss_scores = {}
+
+    def __len__(self):
+        return len(self.__loss_names)
+
+    @property
+    def names(self):
+        return list(self.__loss_names)
+
+    def _compute_single_loss(self, model, targets, name):
+        # Cache the score for logging
+        self.__loss_scores[name] = self.__loss_weight_dict[name] * \
+            self.__loss_dict[name](
+                *[getattr(model, loss_input) for loss_input
+                  in self.__loss_input_dict[name]],
+                targets
+            )
+        return self.__loss_scores[name]
+
+    def verify_args(self, model):
+        for loss_name, loss_inputs in self.__loss_input_dict.items():
+            for loss_input in loss_inputs:
+                if not hasattr(model, loss_input):
+                    raise AttributeError(
+                        "Model does not have attribute {loss_input}, which"
+                        " is an input for the loss {loss_name}".format(
+                            loss_input=loss_input, loss_name=loss_name))
+
+    def loss(self, model, targets):
+        # This means we need to verify that the input arguments for the loss
+        # exist, and notify the user if they don't
+        if self.__verify_loss_args:
+            self.verify_args(model)
+            self.__verify_loss_args = False
+
+        # Compute the loss
+        return sum(self._compute_single_loss(targets, model, loss_name) for
+                   loss_name in self.__loss_names)
+
+    def get_loss_score(self, name=None):
+        if name is None:
+            assert not len(self.__loss_names), "Need to specify a loss if " \
+                "using multiple losses."
+            name = self.__loss_names[0]
+        return self.__loss_scores[name]
+
+    # TODO: Thoughts on changing inputs to a list instead?
+    def add_loss(self, loss_fn, *inputs, weight=1.0, name=None):
+        if name is None:
+            name = "loss_{}".format(len(self.__loss_dict))
+        self.__loss_dict[name] = loss_fn
+        self.__loss_input_dict[name] = inputs
+        self.__loss_weight_dict[name] = weight
+        self.__loss_names.append(name)
+
+    def remove_loss(self, name=None):
+        if name is None:
+            name = self.__loss_names.pop()
+        loss_fn = self.__loss_dict.pop(name)
+        inputs = self.__loss_input_dict.pop(name)
+        weight = self.__loss_weight_dict.pop(name)
+        return {"name": name,
+                "loss": loss_fn,
+                "inputs": inputs,
+                "weight": weight}
+
+    def clear_losses(self):
+        self.reset()
