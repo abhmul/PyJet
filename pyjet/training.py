@@ -164,7 +164,7 @@ class LossManager(object):
             self.__verify_loss_args = False
 
         # Compute the loss
-        return sum(self._compute_single_loss(targets, model, loss_name) for
+        return sum(self._compute_single_loss(model, targets, loss_name) for
                    loss_name in self.__loss_names)
 
     def get_loss_score(self, name=None):
@@ -185,6 +185,8 @@ class LossManager(object):
     def remove_loss(self, name=None):
         if name is None:
             name = self.__loss_names.pop()
+        else:
+            self.__loss_names.remove(name)
         loss_fn = self.__loss_dict.pop(name)
         inputs = self.__loss_input_dict.pop(name)
         weight = self.__loss_weight_dict.pop(name)
