@@ -70,6 +70,7 @@ class MNISTModel(SLModel):
 
 
 model = MNISTModel()
+model.add_loss(nn.CrossEntropyLoss())
 
 # This will save the best scoring model weights to the current directory
 best_model = ModelCheckpoint(
@@ -99,7 +100,6 @@ model.fit_generator(
     epochs=10,
     steps_per_epoch=train_datagen.steps_per_epoch,
     optimizer=optimizer,
-    loss_fn=nn.CrossEntropyLoss(),
     validation_generator=val_datagen,
     validation_steps=val_datagen.steps_per_epoch,
     metrics=['accuracy', 'top3_accuracy'],
