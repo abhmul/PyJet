@@ -238,6 +238,15 @@ class NpDataset(Dataset):
         self.x = x
         self.y = y
         self.ids = ids
+
+        assert isinstance(self.x, np.ndarray), "x must be a numpy array."
+        if self.y is not None:
+            assert isinstance(self.y, np.ndarray), "y must be a numpy array " \
+                "or None."
+        if self.ids is not None:
+            assert isinstance(self.ids, np.ndarray), "ids must be a numpy " \
+                "or None."
+
         self.output_labels = self.has_labels
         if self.has_labels:
             assert len(self.x) == len(
@@ -451,7 +460,6 @@ class ImageDataset(NpDataset):
         img = imread(path_to_img)
         # Then its a grayscale image
         if img.ndim == 2:
-            logging.info("Gray image?:", path_to_img)
             img = gray2rgb(img)
         # Cut out the alpha channel
         img = img[:, :, :3]

@@ -4,14 +4,14 @@ import torch.nn.functional as F
 pool_types = {"no_pool": lambda *args, **kwargs: lambda x: x,
               "max": nn.MaxPool1d,
               "avg": nn.AvgPool1d}
-activation_types = {"linear": None,
-                    "relu": nn.ReLU,
-                    "softmax": nn.Softmax,
-                    "tanh": nn.Tanh}
+activation_types = {name.lower(): cls for name, cls in nn.modules.activation.__dict__.items() if isinstance(cls, type)}
+activation_types["linear"] = None
 
 
 def get_type(item_type, type_dict, fail_message):
     try:
+        if not isinstance(item_type, str):
+            return item_type
         return type_dict[item_type]
     except KeyError:
         raise NotImplementedError(fail_message)
