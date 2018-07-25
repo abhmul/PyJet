@@ -1,3 +1,5 @@
+import torch.optim as optim
+
 import pyjet
 from pyjet.metrics import Accuracy
 from pyjet.losses import categorical_crossentropy
@@ -37,6 +39,54 @@ def test_validate_batch(relu_net):
     expected_loss = -(math.log(x[0, y[0]]) + math.log(x[1, y[1]])) / 2
     assert math.isclose(loss, expected_loss, rel_tol=1e-7)
     assert accuracy_score == 50.
+
+
+def test_optimizer(relu_net):
+    optimizer = optim.SGD(relu_net.parameters(), lr=0.01)
+
+    # Test by adding an unnamed optimizer
+    relu_net.add_optimizer(optimizer)
+    assert len(relu_net.optimizer_manager.optimizers) == \
+        len(relu_net.optimizer_manager.names) == 1
+    assert optimizer in relu_net.optimizer_manager.optimizers
+    assert "optimizer_0" in relu_net.optimizer_manager.names
+
+    # Test by adding a named optimizer
+    name = "sgd_optim"
+    relu_net.clear_optimizers()
+    relu_net.add_optimizer(optimizer, name=name)
+    assert len(relu_net.optimizer_manager.optimizers) == \
+        len(relu_net.optimizer_manager.names) == 1
+    assert optimizer in relu_net.optimizer_manager.optimizers
+    assert name in relu_net.optimizer_manager.names
+
+    # Test by adding multiple optimizers
+    optimizer2 = optim.SGD(relu_net.parameters(), lr=0.02)
+    relu_net.clear_optimizers()
+    relu_net.add_optimizer(optimizer, name=name)
+    relu_net.add_optimizer(optimizer2)
+    assert len(relu_net.optimizer_manager.optimizers) == \
+        len(relu_net.optimizer_manager.names) == 2
+    assert optimizer in relu_net.optimizer_manager.optimizers
+    assert optimizer2 in relu_net.optimizer_manager.optimizers
+    assert name in relu_net.optimizer_manager.names
+    assert "optimizer_1" in relu_net.optimizer_manager.names
+
+    # Test removing an optimizer
+    optim_info = relu_net.remove_optimizer()
+    assert optim_info["name"] == "optimizer_1"
+    assert optim_info["name"] is optimizer2
+    assert len(relu_net.optimizer_manager.optimizers) == \
+        len(relu_net.optimizer_manager.names) == 1
+    # Add an optimizer to check removing
+    # mamed optimizers works out of order
+    relu_net.add_optimizer(optimizer)
+    optim_info = relu_net.remove_optimizer(name=name)
+    assert optim_info["name"] == name
+    assert optim_info["name"] is optimizer
+    assert len(relu_net.optimizer_manager.optimizers) == \
+        len(relu_net.optimizer_manager.names) == 1
+    relu_net.clear_optimizers()
 
 
 def test_loss(relu_net, binary_loss_fn, multi_binary_loss_fn):
