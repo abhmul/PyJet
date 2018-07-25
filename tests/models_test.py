@@ -75,7 +75,7 @@ def test_optimizer(relu_net):
     # Test removing an optimizer
     optim_info = relu_net.remove_optimizer()
     assert optim_info["name"] == "optimizer_1"
-    assert optim_info["name"] is optimizer2
+    assert optim_info["optimizer"] is optimizer2
     assert len(relu_net.optimizer_manager.optimizers) == \
         len(relu_net.optimizer_manager.names) == 1
     # Add an optimizer to check removing
@@ -83,7 +83,7 @@ def test_optimizer(relu_net):
     relu_net.add_optimizer(optimizer)
     optim_info = relu_net.remove_optimizer(name=name)
     assert optim_info["name"] == name
-    assert optim_info["name"] is optimizer
+    assert optim_info["optimizer"] is optimizer
     assert len(relu_net.optimizer_manager.optimizers) == \
         len(relu_net.optimizer_manager.names) == 1
     relu_net.clear_optimizers()
@@ -138,3 +138,5 @@ def test_loss(relu_net, binary_loss_fn, multi_binary_loss_fn):
     pred = relu_net(x_torch)
     relu_net.loss_in2 = pred
     assert relu_net.loss(y_torch) == 8.
+
+    relu_net.clear_losses()

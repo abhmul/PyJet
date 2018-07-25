@@ -1,9 +1,15 @@
 from .models import SLModel
 from .augmenters import Augmenter
+import torch.nn as nn
 import torch.nn.functional as F
 
 
 class ReluNet(SLModel):
+
+    def __init__(self):
+        super(ReluNet, self).__init__()
+        self.param = nn.Linear(100, 100)
+
     def forward(self, x):
         self.loss_in = F.relu(x)
         return self.loss_in

@@ -70,7 +70,7 @@ class SLModel(nn.Module):
         self.optimizer_manager.add_optimizer(optimizer, name=name)
 
     def remove_optimizer(self, name=None):
-        self.optimizer_manager.remove_optimizer(name=name)
+        return self.optimizer_manager.remove_optimizer(name=name)
 
     def clear_optimizers(self):
         self.optimizer_manager.clear_optimizers()
