@@ -197,3 +197,40 @@ class LossManager(object):
 
     def clear_losses(self):
         self.reset()
+
+
+class OptimizerManager(object):
+
+    @utils.resettable
+    def __init__(self):
+        self.__optimizer_names = []
+        self.__optimizer_dict = {}
+
+    def __len__(self):
+        return len(self.__optimizer_names)
+
+    @property
+    def names(self):
+        return list(self.__optimizer_names)
+
+    @property
+    def optimizers(self):
+        return list(self.__optimizer_dict.values())
+
+    def add_optimizer(self, optimizer, name=None):
+        if name is None:
+            name = "optimizer_{}".format(len(self))
+        self.__optimizer_dict[name] = optimizer
+        self.__optimizer_names.append(name)
+
+    def remove_optimizer(self, name=None):
+        if name is None:
+            name = self.__optimizer_names.pop()
+        else:
+            self.__optimizer_names.remove(name)
+        optimizer = self.__optimizer_dict.pop(name)
+        return {"name": name,
+                "optimizer": optimizer}
+
+    def clear_optimizers(self):
+        self.reset()

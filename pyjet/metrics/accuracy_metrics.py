@@ -57,7 +57,7 @@ class AccuracyWithLogits(Accuracy):
         if y_pred.dim() == 2 and y_pred.size(1) > 1:
             y_pred = F.softmax(y_pred, dim=1)
         else:
-            y_pred = F.sigmoid(y_pred)
+            y_pred = torch.sigmoid(y_pred)
         return super().score(y_pred, y_true)
 
 

@@ -1,3 +1,4 @@
+import torch
 import torch.nn.functional as F
 
 import pyjet
@@ -31,7 +32,7 @@ def test_accuracy():
 
     # Now try with binary class input
     x_logit = J.Variable(J.Tensor([[100.], [-100.]]))
-    x = F.sigmoid(x_logit)
+    x = torch.sigmoid(x_logit)
     y = J.Variable(J.LongTensor([0, 0]))
     assert accuracy(x, y) == 50.
     assert fake_accuracy(x, y) == 50.

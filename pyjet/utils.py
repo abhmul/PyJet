@@ -9,11 +9,13 @@ def resettable(f):
     """
     def __init_and_copy__(self, *args, **kwargs):
         f(self, *args)
-        self.__original_dict__ = copy.deepcopy(self.__dict__)
 
         def reset(o=self):
             o.__dict__ = o.__original_dict__
+            o.__original_dict__ = copy.deepcopy(self.__dict__)
 
         self.reset = reset
+        self.__original_dict__ = copy.deepcopy(self.__dict__)
+        print(self.__original_dict__)
 
     return __init_and_copy__

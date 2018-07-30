@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from . import backend as J
-from .training import TrainingLogs, LossManager
+from .training import TrainingLogs, LossManager, OptimizerManager
 from .metrics import Metric, AverageMetric
 from .callbacks import ProgressBar, CallbackList
 from .registry import load_metric
@@ -43,6 +43,7 @@ class SLModel(nn.Module):
         self.torch_module = torch_module
 
         self.loss_manager = LossManager()
+        self.optimizer_manager = OptimizerManager()
 
     def forward(self, *inputs, **kwargs):
         if self.torch_module is not None:
@@ -64,6 +65,15 @@ class SLModel(nn.Module):
             self.cuda()
             self.to_cuda = False
         return
+
+    def add_optimizer(self, optimizer, name=None):
+        self.optimizer_manager.add_optimizer(optimizer, name=name)
+
+    def remove_optimizer(self, name=None):
+        return self.optimizer_manager.remove_optimizer(name=name)
+
+    def clear_optimizers(self):
+        self.optimizer_manager.clear_optimizers()
 
     def loss(self, targets):
         return self.loss_manager.loss(self, targets)
@@ -239,8 +249,6 @@ class SLModel(nn.Module):
                       generator,
                       steps_per_epoch,
                       epochs,
-                      optimizer,
-                      loss_fn=None,
                       validation_generator=None,
                       validation_steps=0,
                       metrics=(),
@@ -249,8 +257,8 @@ class SLModel(nn.Module):
                       verbose=1):
         self.cast_model_to_cuda()
         # Standardize the input
-        optimizers = standardize_list_input(optimizer)
-        loss_fn, *aux_loss_fns = self.compile_loss(loss_fn)
+        optimizers = self.optimizer_manager.optimizers
+        loss_fn, *aux_loss_fns = self.compile_loss()
         metrics = standardize_metric_input(metrics) + aux_loss_fns
         callbacks = CallbackList(callbacks)
         # If the verbosity is set, set up the progress bar

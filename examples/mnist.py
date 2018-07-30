@@ -93,13 +93,13 @@ val_datagen = NpDataset(
 
 # Set up the optimizer
 optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+model.add_optimizer(optimizer)
 
 # Fit the model
 model.fit_generator(
     train_datagen,
     epochs=10,
     steps_per_epoch=train_datagen.steps_per_epoch,
-    optimizer=optimizer,
     validation_generator=val_datagen,
     validation_steps=val_datagen.steps_per_epoch,
     metrics=['accuracy', 'top3_accuracy'],
