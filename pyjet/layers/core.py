@@ -13,8 +13,17 @@ from .. import backend as J
 # TODO Create abstract layers for layers with params that includes weight regularizers
 
 
-def build_fully_connected(input_size, output_size, use_bias=True, activation='linear', num_layers=1, batchnorm=False,
+def Input(*input_shape):
+    # Use 1 for the batch size
+    return J.zeros(1, *input_shape)
+
+def build_fully_connected(units, input_shape, use_bias=True, \
+                          activation='linear', num_layers=1, batchnorm=False,
                           input_dropout=0.0, dropout=0.0):
+    assert len(input_shape) == 1, "Input to FullyConnected layer " \
+        "can only have 1 dimension. {} has {} dimensions" \
+        "".format(input_shape, len(input_shape))
+    input_size, output_size = input_shape[0], units
     layer = nn.Sequential()
     if input_dropout:
         layer.add_module(name="input-dropout", module=nn.Dropout(input_dropout))
@@ -63,23 +72,37 @@ class FullyConnected(layer.Layer):
             2D tensor with shape: `(batch_size, output_size)`.
         """
 
-    def __init__(self, input_size, output_size, use_bias=True, activation='linear', num_layers=1,
+    def __init__(self, units, input_shape=None,
+                 use_bias=True, activation='linear', num_layers=1,
                  batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
         super(FullyConnected, self).__init__()
-        self.input_size = input_size
-        self.output_size = output_size
-        self.activation_name = activation
+        self.units = units
+        self.input_shape = input_shape
+        self.activation = activation
         self.use_bias = use_bias
         self.num_layers = num_layers
         self.batchnorm = batchnorm
+        self.input_dropout = input_dropout
+        self.dropout = dropout
 
-        # Build the layers
-        self.layers = build_fully_connected(input_size, output_size, use_bias=use_bias, activation=activation,
-                                            num_layers=num_layers, batchnorm=batchnorm, input_dropout=input_dropout,
-                                            dropout=dropout)
+        # We'll initialize the layers in the first forward call
+        self.layers = []
+
+    @utils.builder
+    def __build_layer(self, inputs):
+        if self.input_shape is None:
+            self.input_shape = utils.get_input_shape(inputs)
+        self.layers = build_fully_connected(
+            self.units, self.input_shape, use_bias=self.use_bias,
+            activation=self.activation, num_layers=self.num_layers,
+            batchnorm=self.batchnorm, input_dropout=self.input_dropout,
+            dropout=self.dropout
+        )
 
     def forward(self, inputs):
+        if not self.built:
+            self.__build_layer(inputs)
         return self.layers(inputs)
 
     def reset_parameters(self):

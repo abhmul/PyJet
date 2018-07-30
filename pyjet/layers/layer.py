@@ -5,6 +5,7 @@ class Layer(nn.Module):
 
     def __init__(self):
         super(Layer, self).__init__()
+        self.built = False
 
     def forward(self, *input):
         raise NotImplementedError()

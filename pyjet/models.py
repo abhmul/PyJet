@@ -45,6 +45,10 @@ class SLModel(nn.Module):
         self.loss_manager = LossManager()
         self.optimizer_manager = OptimizerManager()
 
+    def infer_inputs(self, *inputs, **kwargs):
+        with torch.no_grad():
+            self.forward(*inputs, **kwargs)
+
     def forward(self, *inputs, **kwargs):
         if self.torch_module is not None:
             self.loss_in = self.torch_module.forward(*inputs, **kwargs)
