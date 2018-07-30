@@ -86,7 +86,7 @@ class StridedPool(layer.Layer):
         NOTE: This is designed for pytorch longtensors, if you pass an integer, make sure to cast it back to an
         integer as python3 will perform float division on it
         """
-        output_size = (input_size - self.dilation * (self.kernel_size - 1) + 2 * self.padding - 1) / self.stride + 1
+        output_size = (input_size - self.dilation * (self.kernel_size - 1) + 2 * self.padding - 1) // self.stride + 1
         return output_size
 
     def calc_input_size(self, output_size):
@@ -229,4 +229,3 @@ class KMaxPooling1D(layer.Layer):
 
     def __str__(self):
         return self.__class__.__name__ + "(k=%s)" % self.k
-
