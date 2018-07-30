@@ -1,4 +1,5 @@
 import warnings
+import itertools
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -13,6 +14,12 @@ from .registry import load_metric
 
 python_iterables = {list, set, tuple, frozenset}
 
+def peek(iterable):
+    try:
+        first = next(iterable)
+    except StopIteration:
+        return None
+    return first, itertools.chain([first], iterable)
 
 def standardize_list_input(inputs):
     if type(inputs) in python_iterables:
@@ -48,6 +55,15 @@ class SLModel(nn.Module):
     def infer_inputs(self, *inputs, **kwargs):
         with torch.no_grad():
             self.forward(*inputs, **kwargs)
+
+    def parameters(self, *args, **kwargs):
+        params = super(SLModel, self).parameters(*args, **kwargs)
+        param_peek = peek(params)
+        if not param_peek is not None:
+            warnings.warn("Model has no parameters! Did you forget to call "
+                          "infer_inputs?")
+            return []
+        return param_peek[1]
 
     def forward(self, *inputs, **kwargs):
         if self.torch_module is not None:
