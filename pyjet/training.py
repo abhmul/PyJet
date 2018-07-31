@@ -109,14 +109,14 @@ class TrainingLogs(dict):
 
     def log_metric(self, metric, score):
         self.batch_logs[metric.__name__] = score.item()
-        self.epoch_logs[metric.__name__] = metric.accumulate().item()
+        self.epoch_logs[metric.__name__] = metric.accumulate()
 
     def on_epoch_end(self):
         for metric_name, score in self.epoch_logs.items():
             self.setdefault(metric_name, []).append(score)
 
     def log_validation_metric(self, metric):
-        self.epoch_logs["val_" + metric.__name__] = metric.accumulate().item()
+        self.epoch_logs["val_" + metric.__name__] = metric.accumulate()
 
 
 class LossManager(object):

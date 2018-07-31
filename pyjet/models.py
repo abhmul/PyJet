@@ -269,7 +269,7 @@ class SLModel(nn.Module):
                       generator,
                       steps_per_epoch,
                       epochs,
-                      validation_generator=None,
+                      validation_data=None,
                       validation_steps=0,
                       metrics=(),
                       callbacks=(),
@@ -288,7 +288,7 @@ class SLModel(nn.Module):
         callbacks.set_model(self)
         # Save whether we will need to run validation
         run_validation = (validation_steps >
-                          0) and validation_generator is not None
+                          0) and validation_data is not None
         logs = TrainingLogs()
 
         # Run the callbacks
@@ -324,7 +324,7 @@ class SLModel(nn.Module):
                 loss_fn = loss_fn.reset()
                 metrics = [metric.reset() for metric in metrics]
                 self.validate_generator(
-                    validation_generator,
+                    validation_data,
                     validation_steps,
                     metrics=([loss_fn] + metrics))
                 # Log the loss and metrics

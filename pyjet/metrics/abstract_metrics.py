@@ -91,7 +91,7 @@ class AverageMetric(Metric):
             "predictions must match for AverageMetric."
         score = super(AverageMetric, self).__call__(y_pred, y_true)
         self.sample_count += y_pred.size(0)
-        self.metric_sum += (score * y_pred.size(0))
+        self.metric_sum += (score.item() * y_pred.size(0))
         return score
 
     def accumulate(self):

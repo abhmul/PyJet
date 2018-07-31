@@ -96,7 +96,7 @@ model.fit_generator(
     train_datagen,
     epochs=10,
     steps_per_epoch=train_datagen.steps_per_epoch,
-    validation_generator=val_datagen,
+    validation_data=val_datagen,
     validation_steps=val_datagen.steps_per_epoch,
     metrics=['accuracy', 'top3_accuracy'],
     callbacks=[best_model, plotter])

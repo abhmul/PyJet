@@ -1,7 +1,9 @@
 import logging
+from functools import partial
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from . import layer
 from . import functions as L
@@ -19,10 +21,10 @@ class UpSampling(layer.Layer):
 
     def __init__(self, size=None, scale_factor=None, mode='nearest'):
         super(UpSampling, self).__init__()
-        self.upsampling = nn.Upsample(size=size, scale_factor=scale_factor, mode=mode)
-        self.size = self.upsampling.size
-        self.scale_factor = self.upsampling.scale_factor
-        self.mode = self.upsampling.mode
+        self.upsampling = partial(F.interpolate, size=size, scale_factor=scale_factor, mode=mode)
+        self.size = size
+        self.scale_factor = scale_factor
+        self.mode = mode
 
     def calc_output_size(self, input_size):
         if self.size is not None:
@@ -38,7 +40,10 @@ class UpSampling(layer.Layer):
 
     def forward(self, x):
         # Expect x as BatchSize x Length1 x ... x LengthN x Filters
-        return self.unfix_input(self.upsampling(self.fix_input(x)))
+        if J.channels_mode == "channels_last":
+            return self.unfix_input(self.upsampling(self.fix_input(x)))
+        else:
+            return self.upsampling(x)
 
     def fix_input(self, x):
         raise NotImplementedError()

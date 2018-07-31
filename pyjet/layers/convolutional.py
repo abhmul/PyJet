@@ -4,6 +4,8 @@ from . import layer
 from . import layer_utils as utils
 from . import functions as L
 
+from .. import backend as J
+
 import logging
 
 # TODO: Add padding and cropping layers
@@ -35,6 +37,8 @@ def build_conv(dimensions, input_size, output_size, kernel_size, stride=1, paddi
             layer.add_module(name="batchnorm-%s" % i, module=Conv.bn_constructors[dimensions](output_size))
         if dropout:
             layer.add_module(name="dropout-%s" % i, module=nn.Dropout(dropout))
+
+    logging.info("Creating layers: %r" % layer)
     return layer
 
 
@@ -76,15 +80,17 @@ class Conv(layer.Layer):
 
         # Build the layers
         self.conv_layers = []
-        logging.info("Creating layers: %r" % self.conv_layers)
 
     @utils.builder
     def __build_layer(self, inputs):
         if self.input_shape is None:
             self.input_shape = utils.get_input_shape(inputs)
-        # Assume channels_last
+        if J.channels_mode == "channels_last":
+            input_channels = self.input_shape[-1]
+        else:
+            input_channels = self.input_shape[0]
         self.conv_layers = build_conv(
-            self.dimensions, self.input_shape[-1], self.filters,
+            self.dimensions, input_channels, self.filters,
             self.kernel_size, stride=self.stride, padding=self.padding,
             dilation=self.dilation, groups=self.groups, use_bias=self.use_bias,
             input_activation=self.input_activation, activation=self.activation,
