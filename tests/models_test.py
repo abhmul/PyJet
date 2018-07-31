@@ -3,7 +3,9 @@ import torch.optim as optim
 import pyjet
 from pyjet.metrics import Accuracy
 from pyjet.losses import categorical_crossentropy
-from pyjet.test_utils import ReluNet, binary_loss, multi_binary_loss
+from pyjet.test_utils import ReluNet, binary_loss, multi_binary_loss, \
+    InferNet1D, InferNet2D, InferNet3D
+import pyjet.backend as J
 import math
 import numpy as np
 import pytest
@@ -14,6 +16,20 @@ def relu_net():
     net = ReluNet()
     return net
 
+@pytest.fixture
+def test_infer_net1d():
+    net = InferNet1D()
+    return net
+
+@pytest.fixture
+def test_infer_net2d():
+    net = InferNet2D()
+    return net
+
+@pytest.fixture
+def test_infer_net3d():
+    net = InferNet3D()
+    return net
 
 @pytest.fixture
 def binary_loss_fn():
@@ -24,6 +40,10 @@ def binary_loss_fn():
 def multi_binary_loss_fn():
     return multi_binary_loss
 
+def test_infer_net(test_infer_net1d, test_infer_net2d, test_infer_net3d):
+    test_infer_net1d(J.zeros(1, 10, 3))
+    test_infer_net2d(J.zeros(1, 10, 10, 3))
+    test_infer_net3d(J.zeros(1, 10, 10, 10, 3))
 
 def test_predict_batch(relu_net):
     x = np.array([[-1., 1., 2., -2.]])

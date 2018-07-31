@@ -10,7 +10,7 @@ from . import wrappers
 from . import core
 from . import pooling
 
-from ..backend import flatten
+from .. import backend as J
 
 
 class ContextAttention(layer.Layer):
@@ -48,6 +48,8 @@ class ContextAttention(layer.Layer):
     def forward(self, x, seq_lens=None):
         if self.padded_input:
             padded_input = x
+            if seq_lens is None:
+                seq_lens = J.LongTensor([x.size(1)] * x.size(0))
             x = L.unpad_sequences(x, seq_lens)
         else:
             padded_input, _ = L.pad_sequences(x)  # B x L x H

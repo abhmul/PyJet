@@ -228,3 +228,9 @@ class Conv3D(Conv):
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout,
                                      dropout=dropout)
+
+    def fix_input(self, inputs):
+        return inputs.permute(0, 4, 1, 2, 3).contiguous()
+
+    def unfix_input(self, outputs):
+        return outputs.permute(0, 2, 3, 4, 1).contiguous()

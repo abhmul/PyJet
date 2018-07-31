@@ -16,6 +16,5 @@ def resettable(f):
 
         self.reset = reset
         self.__original_dict__ = copy.deepcopy(self.__dict__)
-        print(self.__original_dict__)
 
     return __init_and_copy__

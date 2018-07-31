@@ -23,12 +23,13 @@ def build_rnn(rnn_type, input_size, output_size, num_layers=1, bidirectional=Fal
 
 class RNN(layer.Layer):
 
-    layer_constructors = {'gru': nn.GRU, 'lstm': nn.LSTM, "tanh_simple": partialmethod(nn.RNN, nonlinearity='tanh'),
-                          "relu_simple": partialmethod(nn.RNN, nonlinearity='relu')}
+    layer_constructors = {'gru': nn.GRU, 'lstm': nn.LSTM,
+                          "tanh_simple": lambda *args, **kwargs: nn.RNN(*args, nonlinearity='tanh', **kwargs),
+                          "relu_simple": lambda *args, **kwargs: nn.RNN(*args, nonlinearity='relu', **kwargs)}
 
     def __init__(self, rnn_type, units, input_shape=None, num_layers=1,
-                 bidirectional=False,
-                 input_dropout=0.0, dropout=0.0, return_sequences=False, return_state=False):
+                 bidirectional=False, input_dropout=0.0, dropout=0.0,
+                 return_sequences=False, return_state=False):
         super(RNN, self).__init__()
         units = units // 2 if bidirectional else units
 
@@ -38,6 +39,8 @@ class RNN(layer.Layer):
         self.units = units
         self.num_layers = num_layers
         self.bidirectional = bidirectional
+        self.input_dropout = input_dropout
+        self.dropout = dropout
         self.return_sequences = return_sequences
         self.return_state = return_state
 
@@ -82,25 +85,35 @@ class RNN(layer.Layer):
 
 
 class SimpleRNN(RNN):
-    def __init__(self, input_size, output_size, num_layers=1, bidirectional=False,
-                 input_dropout=0.0, dropout=0.0, nonlinearity='tanh', return_sequences=False, return_state=False):
+    def __init__(self, units, input_shape=None, num_layers=1,
+                 bidirectional=False, input_dropout=0.0, dropout=0.0,
+                 return_sequences=False, return_state=False,
+                 nonlinearity='tanh'):
         rnn_type = nonlinearity + "_" + "simple"
-        super(SimpleRNN, self).__init__(rnn_type, input_size, output_size, num_layers=num_layers, bidirectional=bidirectional,
-                                        input_dropout=input_dropout, dropout=dropout, return_sequences=return_sequences,
-                                        return_state=return_state)
+        super(SimpleRNN, self).__init__(
+            rnn_type, units, input_shape=input_shape, num_layers=num_layers,
+            bidirectional=bidirectional, input_dropout=input_dropout,
+            dropout=dropout, return_sequences=return_sequences,
+            return_state=return_state)
 
 
 class GRU(RNN):
-    def __init__(self, input_size, output_size, num_layers=1, bidirectional=False,
-                 input_dropout=0.0, dropout=0.0, return_sequences=False, return_state=False):
-        super(GRU, self).__init__('gru', input_size, output_size, num_layers=num_layers, bidirectional=bidirectional,
-                                  input_dropout=input_dropout, dropout=dropout, return_sequences=return_sequences,
-                                  return_state=return_state)
+    def __init__(self, units, input_shape=None, num_layers=1,
+                 bidirectional=False, input_dropout=0.0, dropout=0.0,
+                 return_sequences=False, return_state=False):
+        super(GRU, self).__init__(
+            'gru', units, input_shape=input_shape, num_layers=num_layers,
+            bidirectional=bidirectional, input_dropout=input_dropout,
+            dropout=dropout, return_sequences=return_sequences,
+            return_state=return_state)
 
 
 class LSTM(RNN):
-    def __init__(self, input_size, output_size, num_layers=1, bidirectional=False,
-                 input_dropout=0.0, dropout=0.0, return_sequences=False, return_state=False):
-        super(LSTM, self).__init__('lstm', input_size, output_size, num_layers=num_layers, bidirectional=bidirectional,
-                                   input_dropout=input_dropout, dropout=dropout, return_sequences=return_sequences,
-                                   return_state=return_state)
+    def __init__(self, units, input_shape=None, num_layers=1,
+                 bidirectional=False, input_dropout=0.0, dropout=0.0,
+                 return_sequences=False, return_state=False):
+        super(LSTM, self).__init__(
+            'lstm', units, input_shape=input_shape, num_layers=num_layers,
+            bidirectional=bidirectional, input_dropout=input_dropout,
+            dropout=dropout, return_sequences=return_sequences,
+            return_state=return_state)
