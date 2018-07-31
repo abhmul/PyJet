@@ -12,7 +12,7 @@ import torch.optim as optim
 from pyjet.models import SLModel
 from pyjet.data import NpDataset
 import pyjet.backend as J
-from pyjet.layers import Conv2D, MaxPooling2D, FullyConnected
+from pyjet.layers import Conv2D, MaxPooling2D, FullyConnected, Input
 from pyjet.callbacks import ModelCheckpoint, Plotter
 
 # Load the dataset
@@ -48,16 +48,12 @@ plt.show()
 class MNISTModel(SLModel):
     def __init__(self):
         super(MNISTModel, self).__init__()
-        self.conv1 = Conv2D(1, 10, kernel_size=5, activation="relu")
-        self.conv2 = Conv2D(10, 20, kernel_size=5, activation="relu")
+        self.conv1 = Conv2D(10, kernel_size=5, activation="relu")
+        self.conv2 = Conv2D(20, kernel_size=5, activation="relu")
         self.mp = MaxPooling2D(2)
-        output_size = self.mp.calc_output_size(
-            self.conv2.calc_output_size(
-                self.mp.calc_output_size(self.conv1.calc_output_size(28))))
-        flat_size = output_size * output_size * 20
-        self.fc1 = FullyConnected(
-            flat_size, 50, activation="relu", dropout=0.5)
-        self.fc2 = FullyConnected(50, 10)
+        self.fc1 = FullyConnected(50, activation="relu", dropout=0.5)
+        self.fc2 = FullyConnected(10)
+        self.infer_inputs(Input(28, 28, 1))
 
     def forward(self, x):
         # Define the neural net forward pass

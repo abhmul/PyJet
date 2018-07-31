@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .. import backend as J
+
 pool_types = {"no_pool": lambda *args, **kwargs: lambda x: x,
               "max": nn.MaxPool1d,
               "avg": nn.AvgPool1d}
@@ -30,3 +32,17 @@ def construct_n_layers(layer_factory, num_layers, input_size, output_size, *args
     for _ in range(num_layers - 1):
         layers.append(layer_factory(output_size, output_size, *args, **kwargs))
     return layers
+
+def get_input_shape(inputs):
+    return tuple(inputs.size())[1:]
+
+def builder(func):
+
+    def build_layer(self, *args, **kwargs):
+        assert not self.built, "Cannot build a layer multiple times!"
+        func(self, *args, **kwargs)
+        if J.use_cuda:
+            self.cuda()
+        self.built = True
+
+    return build_layer
