@@ -1,4 +1,6 @@
 import copy
+import os
+import logging
 
 
 def resettable(f):
@@ -18,3 +20,10 @@ def resettable(f):
         self.__original_dict__ = copy.deepcopy(self.__dict__)
 
     return __init_and_copy__
+
+
+def safe_open_dir(dirpath):
+    if not os.path.isdir(dirpath):
+        logging.info("Directory %s does not exist, creating it" % dirpath)
+        os.makedirs(dirpath)
+    return dirpath

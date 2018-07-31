@@ -1,21 +1,44 @@
+import os
+import json
+import logging
+
 import torch
-from torch.autograd import Variable
-import torch.nn.functional as F
+
+from . import utils
 
 # Config Settings
-epsilon = 1e-11
-channels_mode = "channels_last"
+config = DEFAULT_CONFIG = dict(epsilon=1e-11, channels_mode="channels_last")
+CONFIG_PATH = os.path.join(utils.safe_open_dir(
+    os.path.expanduser("~/.pyjet/")), "pyjet.json")
+# Create the config if it doesn't exist
+if not os.path.exists(CONFIG_PATH):
+    with open(CONFIG_PATH, 'w') as config_file:
+        json.dump(DEFAULT_CONFIG, config_file)
+# Load the config
+with open(CONFIG_PATH, 'r') as config_file:
+    config = json.load(config_file)
 
-def set_channels_mode(mode):
-    assert mode in {"channels_last", "channels_first"}
-    channels_mode = mode
 
-# Optimization for casting things to cuda tensors
+def validate_config(config_dict):
+    assert config_dict["channels_mode"] in \
+        {"channels_first", "channels_last"}, "Channels mode must be either " \
+        "channels_first or channels_last, " \
+        "not {}".format(config_dict["channels_mode"])
+
+
+# Define the global backend variables
+validate_config(config)
+epsilon = config['epsilon']
+channels_mode = config["channels_mode"]
+logging.info("PyJet using config: epsilon={epsilon}, channels_mode"
+             "={channels_mode}".format(**config))
 
 # Set up the use of cuda if available
 use_cuda = torch.cuda.is_available()
 
+
 def cudaFloatTensor(x):
+    # Optimization for casting things to cuda tensors
     return torch.FloatTensor(x).cuda()
 
 
@@ -29,6 +52,7 @@ def cudaByteTensor(x):
 
 def cudaZeros(*args):
     return torch.zeros(*args).cuda()
+
 
 def cudaOnes(*args):
     return torch.ones(*args).cuda()
