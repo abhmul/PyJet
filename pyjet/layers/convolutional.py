@@ -108,7 +108,10 @@ class Conv(layer.Layer):
         if not self.built:
             self.__build_layer(inputs)
         # Expect inputs as BatchSize x Length1 x ... x LengthN x Filters
-        return self.unfix_input(self.conv_layers(self.fix_input(inputs)))
+        if J.channels_mode == "channels_last":
+            return self.unfix_input(self.conv_layers(self.fix_input(inputs)))
+        else:
+            return self.conv_layers(inputs)
 
     def reset_parameters(self):
         for layer in self.conv_layers:

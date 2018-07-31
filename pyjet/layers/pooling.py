@@ -94,7 +94,10 @@ class StridedPool(layer.Layer):
 
     def forward(self, x):
         # Expect x as BatchSize x Length1 x ... x LengthN x Filters
-        return self.unfix_input(self.pool(self.fix_input(x)))
+        if J.channels_mode == "channels_last":
+            return self.unfix_input(self.pool(self.fix_input(x)))
+        else:
+            return self.pool(x)
 
     def fix_input(self, x):
         raise NotImplementedError()

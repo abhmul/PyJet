@@ -2,7 +2,13 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 
+# Config Settings
 epsilon = 1e-11
+channels_mode = "channels_last"
+
+def set_channels_mode(mode):
+    assert mode in {"channels_last", "channels_first"}
+    channels_mode = mode
 
 # Optimization for casting things to cuda tensors
 
