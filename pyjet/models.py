@@ -14,12 +14,14 @@ from .registry import load_metric
 
 python_iterables = {list, set, tuple, frozenset}
 
+
 def peek(iterable):
     try:
         first = next(iterable)
     except StopIteration:
         return None
     return first, itertools.chain([first], iterable)
+
 
 def standardize_list_input(inputs):
     if type(inputs) in python_iterables:
@@ -40,8 +42,8 @@ def standardize_metric_input(metrics):
     return metrics
 
 
-# TODO Not sure whether I'll need to seperate RL models and SL models. Hopefully
-# I planned this out right
+# TODO Not sure whether I'll need to seperate RL models and SL models.
+# Hopefully I planned this out right
 class SLModel(nn.Module):
     def __init__(self, torch_module=None):
         super(SLModel, self).__init__()
@@ -59,7 +61,7 @@ class SLModel(nn.Module):
     def parameters(self, *args, **kwargs):
         params = super(SLModel, self).parameters(*args, **kwargs)
         param_peek = peek(params)
-        if not param_peek is not None:
+        if param_peek is None:
             warnings.warn("Model has no parameters! Did you forget to call "
                           "infer_inputs?")
             return []
@@ -160,7 +162,10 @@ class SLModel(nn.Module):
         # Only account for auxilary losses if there is more than one loss
         if len(self.loss_manager) > 1:
             for name in self.loss_manager.names:
-                def aux_loss(preds, targets):
+                # Using the default value gets around the problem of late
+                # binding.
+                # https://stackoverflow.com/questions/3431676/creating-functions-in-a-loop
+                def aux_loss(preds, targets, name=name):
                     # Preds are not used, just hack to make it behave like
                     # metric
                     return self.loss_manager.get_loss_score(name=name)
