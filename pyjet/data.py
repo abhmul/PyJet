@@ -283,22 +283,26 @@ class NpDataset(Dataset):
             return outputs[0]
         return outputs[0], outputs[1]
 
-    def get_stratified_split_indicies(self, split, shuffle, seed):
-        assert self.output_labels, "Data must have labels to split stratified."
-
+    @staticmethod
+    def get_stratified_split_indicies(split, shuffle, seed, stratify_by):
         if shuffle:
             if seed is not None:
                 np.random.seed(seed)
 
         # Get all the unique output labels
-        unq_labels = np.unique(self.y, axis=0)
+        unq_labels = np.unique(stratify_by, axis=0)
         val_splits = []
         train_splits = []
         for unq_label in unq_labels:
             # Find where the entire output label matches the unique label
-            label_inds = np.where(
-                np.all(self.y == unq_label, axis=tuple(range(1,
-                                                             self.y.ndim))))[0]
+            if stratify_by.ndim == 1:
+                label_mask = stratify_by == unq_label
+            else:
+                non_batch_dims = tuple(range(1, stratify_by.ndim))
+                label_mask = np.all(stratify_by == unq_label,
+                                    axis=non_batch_dims)
+            # Get the indicies where the label matches
+            label_inds = np.where(label_mask)[0]
             if shuffle:
                 np.random.shuffle(label_inds)
             split_ind = int(split * len(label_inds))
@@ -306,11 +310,21 @@ class NpDataset(Dataset):
             train_splits.append(label_inds[split_ind:])
         train_split = np.concatenate(train_splits, axis=0)
         val_split = np.concatenate(val_splits, axis=0)
+        # Shuffle one more time to get the labels shuffled
+        if shuffle:
+            np.random.shuffle(train_split)
+            np.random.shuffle(val_split)
         return train_split, val_split
 
-    def get_split_indicies(self, split, shuffle, seed, stratified):
+    def get_split_indicies(self, split, shuffle, seed, stratified,
+                           stratify_by):
         if stratified:
-            assert self.has_labels, "Data must have labels to stratify."
+            if stratify_by is None:
+                stratify_by = self.y
+            assert stratify_by is not None, "Data must have labels to " \
+                                            "stratify by."
+            assert len(stratify_by) == len(self), "Labels to stratify by " \
+                "have same length as the dataset."
 
         if shuffle:
             if seed is not None:
@@ -318,7 +332,7 @@ class NpDataset(Dataset):
 
         if stratified:
             train_split, val_split = self.get_stratified_split_indicies(
-                split, shuffle, seed)
+                split, shuffle, seed, stratify_by)
         else:
             # Default technique of splitting the data
             split_ind = int(split * len(self))
@@ -358,33 +372,39 @@ class NpDataset(Dataset):
                          split=0.2,
                          shuffle=False,
                          seed=None,
-                         stratified=False):
+                         stratified=False,
+                         stratify_by=None):
         """
         Splits the NpDataset into two smaller datasets based on the split
 
-        # Arguments:
-            split -- The fraction of the dataset to make validation.
-                     Default: 0.2
-            shuffle -- Whether or not to randomly sample the validation set
-                       and train set from the parent dataset. Default: False
-            seed -- A seed for the random number generator (optional).
-            stratified -- Whether or not to sample the validation set to have
-                          the same label distribution as the whole dataset
+        Args:
+            split (float, optional): The fraction of the dataset to make
+                validation. Defaults to 0.2.
+            shuffle (bool, optional): Whether or not to randomly sample the
+                validation set and train set from the parent dataset. Defaults
+                to False.
+            seed (int, optional): A seed for the random number generator.
+                Defaults to None.
+            stratified (bool, optional): Whether or not to sample the
+                validation set to have the same label distribution as the whole
+                dataset. Defaults to False.
+            stratify_by (np.ndarray, optional): A 1D array of additional labels
+                to stratify the split by. Defaults to None. If none is provided
+                will use the actual labels in the dataset. This is useful if
+                you want to stratify based on some other property of the data.
 
-        # Returns
-            A train dataset with (1-split) fraction of the data and a
+        Returns:
+            (tuple): A train dataset with (1-split) fraction of the data and a
             validation dataset with split fraction of the data
 
-        # Note
+        Note:
             Shuffling the dataset will at one point cause double the size of
             the dataset to be loaded into RAM. If this is an issue, I suggest
             you store your dataset on disk split up into validation and train
-            so you don't do this splitting in memory. You can set the
-            destroy_self flag to True if you can afford the split, but want to
-            reclaim the memory from the parent dataset.
+            so you don't do this splitting in memory.
         """
         train_split, val_split = self.get_split_indicies(
-            split, shuffle, seed, stratified)
+            split, shuffle, seed, stratified, stratify_by)
         train_data = self.__class__(
             self.x[train_split],
             y=None if not self.has_labels else self.y[train_split],

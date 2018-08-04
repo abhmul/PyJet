@@ -41,6 +41,7 @@ def test_np_dataset_split():
     dataset_length = 5000
     num_features = 10
     split = 0.2
+    seed = 1234
     x = np.linspace(
         0, dataset_length, num=dataset_length * num_features,
         endpoint=False).reshape((dataset_length, -1))
@@ -59,8 +60,67 @@ def test_np_dataset_split():
     assert np_is_sorted(train.y)
     assert np_is_sorted(val.x)
     assert np_is_sorted(val.y)
+
+    # Try splitting with stratification
+    stratify_by = np.array([0] * (dataset_length // 2) + [1]
+                           * (dataset_length // 4) + [2]
+                           * (dataset_length // 4))
+    stratify_dataset = data.NpDataset(x, y=stratify_by)
+    train, val = stratify_dataset.validation_split(split=split, shuffle=False,
+                                                   seed=None, stratified=True)
+    # Check they are the right length and don't share any elements
+    assert len(train) == int(math.ceil(dataset_length * (1 - split)))
+    assert len(val) == int(dataset_length * split)
+    assert len(np.intersect1d(train.x.flatten(), val.x.flatten())) == 0
+    # Check we didn't shuffle by seeing if dataset is still sorted
+    assert np_is_sorted(train.x)
+    assert np_is_sorted(train.y)
+    assert np_is_sorted(val.x)
+    assert np_is_sorted(val.y)
+    # Check that they have the right ratios
+    assert np.count_nonzero(train.y == 0) / len(train) == \
+        np.count_nonzero(val.y == 0) / len(val) == 1 / 2
+    assert np.count_nonzero(train.y == 1) / len(train) == \
+        np.count_nonzero(val.y == 1) / len(val) == 1 / 4
+    assert np.count_nonzero(train.y == 2) / len(train) == \
+        np.count_nonzero(val.y == 2) / len(val) == 1 / 4
+
+    # Try using a stratify_by produces for same result
+    train2, val2 = dataset.validation_split(split=split, shuffle=False,
+                                            seed=None, stratified=True,
+                                            stratify_by=stratify_by)
+    # Check they are the right length and don't share any elements
+    assert len(train2) == int(math.ceil(dataset_length * (1 - split)))
+    assert len(val2) == int(dataset_length * split)
+    assert len(np.intersect1d(train2.x.flatten(), val2.x.flatten())) == 0
+    assert len(np.intersect1d(train2.y.flatten(), val2.y.flatten())) == 0
+    # Check that the x and y match up
+    assert np.all(train2.y == train2.x[:, 0])
+    assert np.all(val2.y == val2.x[:, 0])
+    # Check that the x is the same
+    assert np.all(train2.x == train.x)
+
+    # Try stratification splitting with shuffling
+    train, val = stratify_dataset.validation_split(split=split, shuffle=True,
+                                                   seed=seed, stratified=True)
+    # Check they are the right length and don't share any elements
+    assert len(train) == int(math.ceil(dataset_length * (1 - split)))
+    assert len(val) == int(dataset_length * split)
+    assert len(np.intersect1d(train.x.flatten(), val.x.flatten())) == 0
+    # Check that it isn't sorted (Extremely unlikely this fails)
+    assert not np_is_sorted(train.x)
+    assert not np_is_sorted(train.y)
+    assert not np_is_sorted(val.x)
+    assert not np_is_sorted(val.y)
+    # Check that they have the right ratios
+    assert np.count_nonzero(train.y == 0) / len(train) == \
+        np.count_nonzero(val.y == 0) / len(val) == 1 / 2
+    assert np.count_nonzero(train.y == 1) / len(train) == \
+        np.count_nonzero(val.y == 1) / len(val) == 1 / 4
+    assert np.count_nonzero(train.y == 2) / len(train) == \
+        np.count_nonzero(val.y == 2) / len(val) == 1 / 4
+
     # Try splitting with shuffling
-    seed = 1234
     train, val = dataset.validation_split(split=split, shuffle=True, seed=seed)
     # Check they are the right length and don't share any elements
     assert len(train) == int(math.ceil(dataset_length * (1 - split)))
