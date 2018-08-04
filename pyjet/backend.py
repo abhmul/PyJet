@@ -70,6 +70,11 @@ def softmax(x):
     return normalized_exp / normalized_exp.sum(1).expand(*x.size())
 
 
+def sum(x):
+    """Sums a tensor long all non-batch dimensions"""
+    return x.sum(tuple(range(1, x.dim())))
+
+
 def zero_center(x):
     return x - x.mean()
 

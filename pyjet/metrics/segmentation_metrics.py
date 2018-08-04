@@ -30,13 +30,15 @@ class IOU(AverageMetric):
         y_true = y_true > 0.5  # Casts the ground truth to a byte tensor
 
         non_batch_dims = tuple(range(1, y_pred.dim()))
-        union = (y_pred & y_true).sum(non_batch_dims)
+        union = (y_pred | y_true).sum(non_batch_dims)
         intersection = (y_pred & y_true).sum(non_batch_dims)
 
-        # Cover the edge case of empty ground truth
-        intersection = intersection.masked_fill_(union == 0, 1.)
-        union = union.masked_fill_(union == 0, 1.)
-
+        # If the union is 0, we both predicted nothing and ground
+        # truth was nothing. All other no ground truth cases will
+        # be 0.
+        no_union = union == 0
+        intersection = intersection.masked_fill_(no_union, 1.)
+        union = union.masked_fill_(no_union, 1.)
         return torch.mean(intersection.float() / union.float())
 
 

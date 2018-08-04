@@ -471,12 +471,13 @@ class ImageDataset(NpDataset):
             img = resize(
                 img, img_size, mode='constant',
                 preserve_range=True).astype(np.uint8)
-
         # Normalize the image
-        if mode == "rgb" or mode == "gray":
+        if mode == "rgb":
             img = img / 255.
         elif mode == "ycbcr":
             img = img / 235.
+        elif mode == 'gray':
+            img = img / 1.
 
         return img, orig_img_shape
 
