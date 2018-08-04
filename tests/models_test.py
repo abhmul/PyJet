@@ -4,7 +4,7 @@ import pyjet
 from pyjet.metrics import Accuracy
 from pyjet.losses import categorical_crossentropy
 from pyjet.test_utils import ReluNet, binary_loss, multi_binary_loss, \
-    InferNet1D, InferNet2D, InferNet3D
+    one_loss, InferNet1D, InferNet2D, InferNet3D
 import pyjet.backend as J
 import math
 import numpy as np
@@ -131,18 +131,18 @@ def test_loss(relu_net, binary_loss_fn, multi_binary_loss_fn):
     assert relu_net.loss(y_torch) == 4.
 
     # Test it it with an input that's not 'loss_in' and using multi loss
-    relu_net.add_loss(binary_loss_fn, inputs=['loss_in2'], name="new_loss")
+    relu_net.add_loss(one_loss, inputs=['loss_in2'], name="new_loss")
     pred = relu_net(x_torch)
     relu_net.loss_in2 = pred
-    assert relu_net.loss(y_torch) == 8.
+    assert relu_net.loss(y_torch) == 5.
     # Check that the individual loss values were also calculated
     assert relu_net.loss_manager.get_loss_score('loss_0') == 4.
-    assert relu_net.loss_manager.get_loss_score('new_loss') == 4.
+    assert relu_net.loss_manager.get_loss_score('new_loss') == 1.
 
     # Now try removing the loss
     loss_info = relu_net.remove_loss(name="new_loss")
     assert loss_info["name"] == "new_loss"
-    assert loss_info["loss"] == binary_loss_fn
+    assert loss_info["loss"] == one_loss
     assert loss_info["inputs"] == ["loss_in2"]
     assert loss_info["weight"] == 1.0
 

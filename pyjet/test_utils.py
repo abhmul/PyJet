@@ -78,5 +78,9 @@ def binary_loss(y_pred, y_true):
     return (y_pred * y_true).sum()
 
 
+def one_loss(y_pred, y_true):
+    return binary_loss(y_pred, y_true) * 0. + 1.
+
+
 def multi_binary_loss(y_pred1, y_pred2, y_true):
     return binary_loss(y_pred1, y_true) + binary_loss(y_pred2, y_true)

@@ -163,11 +163,11 @@ class SLModel(nn.Module):
                 def aux_loss(preds, targets):
                     # Preds are not used, just hack to make it behave like
                     # metric
-                    return self.loss_manager.get_loss_score(name)
-            metric_aux_loss = AverageMetric(aux_loss)
-            # Change the name for logging
-            metric_aux_loss.__name__ = name
-            aux_losses.append(metric_aux_loss)
+                    return self.loss_manager.get_loss_score(name=name)
+                metric_aux_loss = AverageMetric(aux_loss)
+                # Change the name for logging
+                metric_aux_loss.__name__ = name
+                aux_losses.append(metric_aux_loss)
 
         return (AverageMetric(loss), *aux_losses)
 

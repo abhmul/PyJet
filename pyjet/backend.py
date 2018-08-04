@@ -3,6 +3,7 @@ import json
 import logging
 
 import torch
+from torch.autograd import Variable  # DO NOT REMOVE
 
 from . import utils
 
