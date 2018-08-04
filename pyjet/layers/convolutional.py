@@ -1,8 +1,8 @@
 import torch.nn as nn
+import torch.nn.functional as F
 
 from . import layer
 from . import layer_utils as utils
-from . import functions as L
 
 from .. import backend as J
 
@@ -11,30 +11,41 @@ import logging
 # TODO: Add padding and cropping layers
 
 
-def build_conv(dimensions, input_size, output_size, kernel_size, stride=1, padding=0, dilation=1, groups=1,
-               use_bias=True, input_activation='linear', activation='linear', num_layers=1,
+def build_conv(dimensions, input_size, output_size, kernel_size, stride=1,
+               dilation=1, groups=1, use_bias=True, input_activation='linear',
+               activation='linear', num_layers=1,
                input_batchnorm=False, batchnorm=False,
                input_dropout=0.0, dropout=0.0):
     # Create the sequential
     layer = nn.Sequential()
     # Add the input dropout
     if input_dropout:
-        layer.add_module(name="input-dropout", module=nn.Dropout(input_dropout))
+        layer.add_module(
+            name="input-dropout",
+            module=nn.Dropout(input_dropout))
     if input_batchnorm:
-        layer.add_module(name="input-batchnorm", module=Conv.bn_constructors[dimensions](input_size))
+        layer.add_module(
+            name="input-batchnorm",
+            module=Conv.bn_constructors[dimensions](input_size))
     if input_activation != 'linear':
-        layer.add_module(name="input_{}".format(input_activation), module=utils.get_activation_type(input_activation)())
+        layer.add_module(
+            name="input_{}".format(input_activation),
+            module=utils.get_activation_type(input_activation)())
     # Add each layer
     for i in range(num_layers):
         layer_input = input_size if i == 0 else output_size
         layer.add_module(name="conv-%s" % i,
-                         module=Conv.layer_constructors[dimensions](layer_input, output_size, kernel_size,
-                                                                    stride=stride, padding=padding, dilation=dilation,
-                                                                    groups=groups, bias=use_bias))
+                         module=Conv.layer_constructors[dimensions](
+                            layer_input, output_size, kernel_size,
+                            stride=stride, dilation=dilation, groups=groups,
+                            bias=use_bias))
         if activation != "linear":
-            layer.add_module(name="{}-{}".format(activation, i), module=utils.get_activation_type(activation)())
+            layer.add_module(name="{}-{}".format(activation, i),
+                             module=utils.get_activation_type(activation)())
         if batchnorm:
-            layer.add_module(name="batchnorm-%s" % i, module=Conv.bn_constructors[dimensions](output_size))
+            layer.add_module(
+                name="batchnorm-%s" % i,
+                module=Conv.bn_constructors[dimensions](output_size))
         if dropout:
             layer.add_module(name="dropout-%s" % i, module=nn.Dropout(dropout))
 
@@ -58,7 +69,6 @@ class Conv(layer.Layer):
             raise NotImplementedError("padding: %s" % padding)
         if dimensions not in [1, 2, 3]:
             raise NotImplementedError("Conv{}D".format(dimensions))
-        padding = (kernel_size - 1) // 2 if padding == 'same' else padding
 
         # Set up attributes
         self.dimensions = dimensions
@@ -81,6 +91,24 @@ class Conv(layer.Layer):
         # Build the layers
         self.conv_layers = []
 
+    def get_same_padding(self, input_len):
+        total_padding = int(self.stride * (input_len - 1) + 1 + self.dilation * (self.kernel_size - 1) - input_len)
+        if total_padding % 2 == 1:
+            pad_l = total_padding // 2
+            return pad_l, total_padding - pad_l
+        else:
+            pad = total_padding // 2
+            return pad, pad
+
+    def get_padding(self, input_len):
+        if self.padding != 'same':
+            return self.padding, self.padding
+        else:
+            return self.get_same_padding(input_len)
+
+    def pad_input(self, x):
+        raise NotImplementedError("Layer does not know how to pad input")
+
     @utils.builder
     def __build_layer(self, inputs):
         if self.input_shape is None:
@@ -91,13 +119,12 @@ class Conv(layer.Layer):
             input_channels = self.input_shape[0]
         self.conv_layers = build_conv(
             self.dimensions, input_channels, self.filters,
-            self.kernel_size, stride=self.stride, padding=self.padding,
+            self.kernel_size, stride=self.stride,
             dilation=self.dilation, groups=self.groups, use_bias=self.use_bias,
             input_activation=self.input_activation, activation=self.activation,
             num_layers=self.num_layers, input_batchnorm=self.input_batchnorm,
             batchnorm=self.batchnorm, input_dropout=self.input_dropout,
             dropout=self.dropout)
-
 
     def calc_output_size(self, input_size):
         """
@@ -115,9 +142,11 @@ class Conv(layer.Layer):
             self.__build_layer(inputs)
         # Expect inputs as BatchSize x Length1 x ... x LengthN x Filters
         if J.channels_mode == "channels_last":
-            return self.unfix_input(self.conv_layers(self.fix_input(inputs)))
-        else:
-            return self.conv_layers(inputs)
+            inputs = self.fix_input(inputs)
+        inputs = self.conv_layers(self.pad_input(inputs))
+        if J.channels_mode == "channels_last":
+            inputs = self.unfix_input(inputs)
+        return inputs
 
     def reset_parameters(self):
         for layer in self.conv_layers:
@@ -133,8 +162,8 @@ class Conv(layer.Layer):
 class Conv1D(Conv):
     def __init__(self, filters, kernel_size, input_shape=None, stride=1,
                  padding='same', dilation=1, groups=1,
-                 use_bias=True, input_activation='linear', activation='linear', num_layers=1,
-                 input_batchnorm=False, batchnorm=False,
+                 use_bias=True, input_activation='linear', activation='linear',
+                 num_layers=1, input_batchnorm=False, batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
         super(Conv1D, self).__init__(1, filters, kernel_size,
                                      input_shape=input_shape, stride=stride,
@@ -142,7 +171,8 @@ class Conv1D(Conv):
                                      dilation=dilation, groups=groups,
                                      use_bias=use_bias,
                                      input_activation=input_activation,
-                                     activation=activation, num_layers=num_layers,
+                                     activation=activation,
+                                     num_layers=num_layers,
                                      input_batchnorm=input_batchnorm,
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout,
@@ -154,52 +184,16 @@ class Conv1D(Conv):
     def unfix_input(self, outputs):
         return outputs.transpose(1, 2).contiguous()
 
-# TODO: Update this to match the new inferrable inputs api
-class SequenceConv1D(Conv1D):
-    def __init__(self, input_size, output_size, kernel_size,
-                 use_bias=True, input_activation='linear', activation='linear',
-                 input_batchnorm=False, batchnorm=False,
-                 input_dropout=0.0, dropout=0.0):
-        super(SequenceConv1D, self).__init__(input_size, output_size, kernel_size, stride=1, padding='same',
-                                     dilation=1, groups=1, use_bias=use_bias,
-                                     input_activation='linear', activation='linear', num_layers=1,
-                                     input_batchnorm=False, batchnorm=False,
-                                     input_dropout=False, dropout=False)
-        identity = lambda x: x
-        self.input_dropout = identity if input_dropout == 0. else nn.Dropout(input_dropout)
-        self.dropout = identity if dropout == 0. else nn.Dropout(dropout)
-        self.input_activation = identity if input_activation == 'linear' else utils.get_activation_type(input_activation)()
-        self.activation = identity if activation == 'linear' else utils.get_activation_type(activation)()
-        self.input_batchnorm = None if not input_batchnorm else nn.BatchNorm1d(input_size)
-        self.batchnorm = None if not batchnorm else nn.BatchNorm1d(output_size)
-
-    def forward(self, seq_inputs):
-        seq_inputs = [self.input_dropout(sample.unsqueeze(0)).squeeze(0) for sample in seq_inputs]
-        if self.input_batchnorm is not None:
-            padded_inputs, seq_lens = L.pad_sequences(seq_inputs)
-            padded_inputs = self.unfix_input(self.input_batchnorm(self.fix_input(padded_inputs)))
-            seq_inputs = L.unpad_sequences(padded_inputs, seq_lens)
-        seq_inputs = [self.activation(super(SequenceConv1D, self).forward(self.input_activation(sample.unsqueeze(0)))).squeeze(0) for sample in seq_inputs]
-        if self.batchnorm is not None:
-            padded_inputs, seq_lens = L.pad_sequences(seq_inputs)
-            padded_inputs = self.unfix_input(self.batchnorm(self.fix_input(padded_inputs)))
-            seq_inputs = L.unpad_sequences(padded_inputs, seq_lens)
-        seq_inputs = [self.dropout(sample.unsqueeze(0)).squeeze(0) for sample in seq_inputs]
-        return seq_inputs
-
-    def reset_parameters(self):
-        if self.batchnorm is not None:
-            self.batchnorm.reset_parameters()
-        if self.input_batchnorm is not None:
-            self.input_batchnorm.reset_parameters()
-        super().reset_parameters()
+    def pad_input(self, inputs):
+        # inputs is batch_size x channels x length
+        return F.pad(inputs, self.get_padding(inputs.size(2)))
 
 
 class Conv2D(Conv):
     def __init__(self, filters, kernel_size, input_shape=None, stride=1,
                  padding='same', dilation=1, groups=1,
-                 use_bias=True, input_activation='linear', activation='linear', num_layers=1,
-                 input_batchnorm=False, batchnorm=False,
+                 use_bias=True, input_activation='linear', activation='linear',
+                 num_layers=1, input_batchnorm=False, batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
         super(Conv2D, self).__init__(2, filters, kernel_size,
                                      input_shape=input_shape, stride=stride,
@@ -207,7 +201,8 @@ class Conv2D(Conv):
                                      dilation=dilation, groups=groups,
                                      use_bias=use_bias,
                                      input_activation=input_activation,
-                                     activation=activation, num_layers=num_layers,
+                                     activation=activation,
+                                     num_layers=num_layers,
                                      input_batchnorm=input_batchnorm,
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout,
@@ -219,12 +214,18 @@ class Conv2D(Conv):
     def unfix_input(self, outputs):
         return outputs.permute(0, 2, 3, 1).contiguous()
 
+    def pad_input(self, inputs):
+        # inputs is batch_size x channels x height x width
+        padding = self.get_padding(inputs.size(2)) + \
+                  self.get_padding(inputs.size(3))
+        return F.pad(inputs, padding)
+
 
 class Conv3D(Conv):
     def __init__(self, filters, kernel_size, input_shape=None, stride=1,
                  padding='same', dilation=1, groups=1,
-                 use_bias=True, input_activation='linear', activation='linear', num_layers=1,
-                 input_batchnorm=False, batchnorm=False,
+                 use_bias=True, input_activation='linear', activation='linear',
+                 num_layers=1, input_batchnorm=False, batchnorm=False,
                  input_dropout=0.0, dropout=0.0):
         super(Conv3D, self).__init__(3, filters, kernel_size,
                                      input_shape=input_shape, stride=stride,
@@ -232,7 +233,8 @@ class Conv3D(Conv):
                                      dilation=dilation, groups=groups,
                                      use_bias=use_bias,
                                      input_activation=input_activation,
-                                     activation=activation, num_layers=num_layers,
+                                     activation=activation,
+                                     num_layers=num_layers,
                                      input_batchnorm=input_batchnorm,
                                      batchnorm=batchnorm,
                                      input_dropout=input_dropout,
@@ -243,3 +245,10 @@ class Conv3D(Conv):
 
     def unfix_input(self, outputs):
         return outputs.permute(0, 2, 3, 4, 1).contiguous()
+
+    def pad_input(self, inputs):
+        # inputs is batch_size x channels x height x width x time
+        padding = self.get_padding(inputs.size(2)) + \
+                  self.get_padding(inputs.size(3)) + \
+                  self.get_padding(inputs.size(4))
+        return F.pad(inputs, padding)
