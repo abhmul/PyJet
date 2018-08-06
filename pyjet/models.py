@@ -55,6 +55,7 @@ class SLModel(nn.Module):
         self.optimizer_manager = OptimizerManager()
 
     def infer_inputs(self, *inputs, **kwargs):
+        self.cast_model_to_cuda()
         with torch.no_grad():
             self.forward(*inputs, **kwargs)
 

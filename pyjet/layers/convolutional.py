@@ -28,9 +28,15 @@ def build_conv(dimensions, input_size, output_size, kernel_size, stride=1,
             name="input-batchnorm",
             module=Conv.bn_constructors[dimensions](input_size))
     if input_activation != 'linear':
-        layer.add_module(
-            name="input_{}".format(input_activation),
-            module=utils.get_activation_type(input_activation)())
+        try:
+            layer.add_module(
+                name="input_{}".format(input_activation),
+                module=utils.get_activation_type(input_activation)(inplace=True)
+            )
+        except TypeError:  # If inplace is not an option on the activation
+            layer.add_module(
+                name="input_{}".format(input_activation),
+                module=utils.get_activation_type(input_activation)())
     # Add each layer
     for i in range(num_layers):
         layer_input = input_size if i == 0 else output_size
@@ -40,8 +46,16 @@ def build_conv(dimensions, input_size, output_size, kernel_size, stride=1,
                             stride=stride, dilation=dilation, groups=groups,
                             bias=use_bias))
         if activation != "linear":
-            layer.add_module(name="{}-{}".format(activation, i),
-                             module=utils.get_activation_type(activation)())
+            try:
+                layer.add_module(
+                    name="{}-{}".format(activation, i),
+                    module=utils.get_activation_type(activation)(inplace=True)
+                )
+            except TypeError:  # If inplace is not an option on the activation
+                layer.add_module(
+                    name="{}-{}".format(activation, i),
+                    module=utils.get_activation_type(activation)()
+                )
         if batchnorm:
             layer.add_module(
                 name="batchnorm-%s" % i,
