@@ -5,6 +5,7 @@ import wget
 import numpy as np
 import matplotlib.pyplot as plt
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -27,9 +28,9 @@ except OSError:
 # Need to convert to keras format
 f.close()
 
-xtr = xtr.reshape((-1, 28, 28, 1))  # Should be (Height, Width, Channel)
-xval = xval.reshape((-1, 28, 28, 1))  # Should be (Height, Width, Channel)
-xte = xte.reshape((-1, 28, 28, 1))  # Should be (Height, Width, Channel)
+xtr = xtr.reshape((-1, 1, 28, 28))  # Should be (Height, Width, Channel)
+xval = xval.reshape((-1, 1, 28, 28))  # Should be (Height, Width, Channel)
+xte = xte.reshape((-1, 1, 28, 28))  # Should be (Height, Width, Channel)
 
 print("Maximum Pixel value in training set:", np.max(xtr))
 print("Training Data Shape:", xtr.shape)
@@ -39,29 +40,81 @@ print("Validation Labels Shape: ", yval.shape)
 
 # Visualize an image
 ind = np.random.randint(xtr.shape[0])
-plt.imshow(xtr[ind, :, :, 0], cmap='gray')
-plt.title("Digit = %s" % ytr[ind])
-plt.show()
+# plt.imshow(xtr[ind, 0, :, :], cmap='gray')
+# plt.title("Digit = %s" % ytr[ind])
+# plt.show()
 
 
 # Create the model
 class MNISTModel(SLModel):
     def __init__(self):
         super(MNISTModel, self).__init__()
-        self.conv1 = Conv2D(10, kernel_size=5, activation="relu")
-        self.conv2 = Conv2D(20, kernel_size=5, activation="relu")
+        self.conv1 = Conv2D(20, kernel_size=5, activation="sigmoid")
+        self.conv2 = Conv2D(30, kernel_size=5, activation="sigmoid")
+        # self.conv3 = Conv2D(30, kernel_size=3, activation="linear")
+        # self.conv4 = Conv2D(40, kernel_size=3, activation="linear")
         self.mp = MaxPooling2D(2)
-        self.fc1 = FullyConnected(50, activation="relu", dropout=0.5)
+        self.fc1 = FullyConnected(50, activation="linear")
         self.fc2 = FullyConnected(10)
-        self.infer_inputs(Input(28, 28, 1))
+
+        self.reset_stats()
+
+        # self.conv1 = Conv2D(500, kernel_size=9, activation="relu")
+        # self.final = FullyConnected(10)
+        self.infer_inputs(Input(1, 28, 28))
+
+    def reset_stats(self):
+        stats = {'sum': 0, 'max': 0, 'min': 0, 'cnt': 0, 'avg': 0, 'sq_sum': 0}
+        self.conv1_stats = dict(stats)
+        self.conv2_stats = dict(stats)
+        self.conv3_stats = dict(stats)
+        self.conv4_stats = dict(stats)
+        self.fc1_stats = dict(stats)
+
+    def sample_mask(self, x):
+        return torch.bernoulli(torch.sigmoid(x.data))
+
+    def update_stat(self, stat, x):
+        stat['cnt'] += x.size(0)
+        stat['sum'] += x.data.sum(dim=0).mean().item()
+        stat['max'] = x.data.max().item()
+        stat['min'] = x.data.min().item()
+        stat['avg'] = stat['sum'] / stat['cnt']
+
 
     def forward(self, x):
         # Define the neural net forward pass
-        x = self.mp(self.conv1(x))
-        x = self.mp(self.conv2(x))
+        x = self.conv1(x)
+        # x *= self.sample_mask(x)
+        self.update_stat(self.conv1_stats, x)
+        x = self.mp(x)
+
+        x = self.conv2(x)
+        # x *= self.sample_mask(x)
+        self.update_stat(self.conv2_stats, x)
+        x = self.mp(x)
+
+        # x = self.conv3(x)
+        # # x *= self.sample_mask(x)
+        # self.update_stat(self.conv3_stats, x)
+        # # x = self.mp(x)
+
+        # x = self.conv4(x)
+        # # x *= self.sample_mask(x)
+        # self.update_stat(self.conv4_stats, x)
+        # x = self.mp(x)
+
         x = J.flatten(x)
+
         x = self.fc1(x)
+        # x *= self.sample_mask(x)
+        self.update_stat(self.fc1_stats, x)
         self.loss_in = self.fc2(x)
+
+        # x = self.conv1(x)
+        # x = J.flatten(x)
+        # x = self.final(x)
+        # self.loss_in = x
         return F.softmax(self.loss_in, dim=-1)
 
 
@@ -107,13 +160,20 @@ print("Loading the model")
 model.load_state("mnist_pyjet.state")
 # Test it on the test set
 test_datagen = NpDataset(xte).flow(batch_size=1000, shuffle=False)
+model.reset_stats()
 test_preds = model.predict_generator(test_datagen,
                                      test_datagen.steps_per_epoch)
+num_test = xte.shape[0]
+print("CONV1_stats:", model.conv1_stats)
+print("CONV2_stats:", model.conv2_stats)
+print("FC1_stats:", model.fc1_stats)
+
+
 
 # Visualize an image and its prediction
 while True:
     ind = np.random.randint(xte.shape[0])
-    plt.imshow(xte[ind, :, :, 0], cmap='gray')
+    plt.imshow(xte[ind, 0, :, :], cmap='gray')
     test_pred = test_preds[ind]
     plt.title("Prediction = %s" % np.argmax(test_pred))
     plt.show()

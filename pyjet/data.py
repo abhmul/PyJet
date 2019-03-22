@@ -440,11 +440,11 @@ class NpDataset(Dataset):
             reclaim the memory from the parent dataset.
         """
         for train_split, val_split in self.get_kfold_indices(k, shuffle, seed):
-            train_data = NpDataset(
+            train_data = self.__class__(
                 self.x[train_split],
                 y=None if not self.has_labels else self.y[train_split],
                 ids=None if not self.has_ids else self.ids[train_split])
-            val_data = NpDataset(
+            val_data = self.__class__(
                 self.x[val_split],
                 y=None if not self.has_labels else self.y[val_split],
                 ids=None if not self.has_ids else self.ids[val_split])
@@ -480,14 +480,18 @@ class ImageDataset(NpDataset):
         img = imread(path_to_img)
         # Then its a grayscale image
         if img.ndim == 2:
-            img = gray2rgb(img)
-        # Cut out the alpha channel
-        img = img[:, :, :3]
-        img = ImageDataset.MODE2FUNC[mode](img)
+            img = img[:, :, np.newaxis]
+        elif np.all(img[:, :, 0:1] == img):
+            img = img[:, :, 0:1]
+        # Otherwise it's rgb
+        else:
+            # Cut out the alpha channel
+            img = img[:, :, :3]
+            img = ImageDataset.MODE2FUNC[mode](img)
 
         orig_img_shape = img.shape[:2]
         # Resize to the input size
-        if img_size is not None:
+        if img_size is not None and img_size != orig_img_shape:
             img = resize(
                 img, img_size, mode='constant',
                 preserve_range=True).astype(np.uint8)
@@ -497,25 +501,58 @@ class ImageDataset(NpDataset):
         elif mode == "ycbcr":
             img = img / 235.
         elif mode == 'gray':
-            img = img / 1.
+            img = img / 255.
 
         return img, orig_img_shape
 
-    def create_batch(self, batch_indicies):
-        filenames = self.x[batch_indicies]
-        images = [
-            self.load_img(path_to_img, img_size=self.img_size,
-                          mode=self.mode)[0] for path_to_img in filenames
-        ]
+    @staticmethod
+    def load_img_batch(img_paths, img_size=None, mode="rgb"):
+        images, img_shapes = zip(
+            *(ImageDataset.load_img(path_to_img, img_size=img_size, mode=mode)
+              for path_to_img in img_paths)
+        )
         # If variable image size, stack the images as numpy arrays otherwise
         # create one large numpy array
-        if self.img_size is None:
-            x = np.array(images, dtype='O')
+        if img_size is None:
+            images = np.array(images, dtype='O')
         else:
-            x = np.stack(images)
+            images = np.stack(images)
+        # Turn the img shapes into an array
+        img_shapes = np.array(img_shapes)
+        return images, img_shapes
+
+    def create_batch(self, batch_indicies):
+        filenames = self.x[batch_indicies]
+        x = self.load_img_batch(
+            filenames, img_size=self.img_size, mode=self.mode)[0]
 
         if self.output_labels:
             return x, self.y[batch_indicies]
+        return x
+
+
+class ImageMaskDataset(ImageDataset):
+    """
+        A Dataset that is built from a numpy array of filenames for images
+
+        # Arguments
+            x -- The input data as a numpy array of filenames
+            y -- The target data as a numpy array of filenames (optional)
+    """
+
+    def create_batch(self, batch_indicies):
+        filenames = self.x[batch_indicies]
+        x = self.load_img_batch(
+            filenames, img_size=self.img_size, mode=self.mode)[0]
+
+        if self.output_labels:
+            # Load the output masks
+            filenames = self.y[batch_indicies]
+            y = self.load_img_batch(
+                filenames, img_size=self.img_size, mode='gray'
+            )[0][:, :, :, 0]
+            return x, y
+
         return x
 
 

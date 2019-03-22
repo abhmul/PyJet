@@ -259,7 +259,7 @@ class ModelCheckpoint(Callback):
             self.monitor_op = np.greater
             self.best = -np.Inf
         else:
-            if 'acc' in self.monitor or 'auc' in self.monitor or self.monitor.startswith('fmeasure'):
+            if 'acc' in self.monitor or 'auc' in self.monitor or 'iou' in self.monitor or self.monitor.startswith('fmeasure'):
                 self.monitor_op = np.greater
                 self.best = -np.Inf
             else:
