@@ -476,7 +476,7 @@ class ImageDataset(NpDataset):
                 img_size=self.img_size, mode=self.mode))
 
     @staticmethod
-    def load_img(path_to_img, img_size=None, mode="rgb"):
+    def load_img(path_to_img, img_size=None, mode="rgb", to_float=True):
         img = imread(path_to_img)
         # Then its a grayscale image
         if img.ndim == 2:
@@ -495,20 +495,24 @@ class ImageDataset(NpDataset):
             img = resize(
                 img, img_size, mode='constant',
                 preserve_range=True).astype(np.uint8)
-        # Normalize the image
-        if mode == "rgb":
-            img = img / 255.
-        elif mode == "ycbcr":
-            img = img / 235.
-        elif mode == 'gray':
-            img = img / 255.
+        if to_float:
+            # Normalize the image
+            if mode == "rgb":
+                img = img / 255.
+            elif mode == "ycbcr":
+                img = img / 235.
+            elif mode == 'gray':
+                img = img / 255.
+        else:
+            # Use uint8 to keep mem low
+            img = img.astype(np.uint8, copy=False)
 
         return img, orig_img_shape
 
     @staticmethod
-    def load_img_batch(img_paths, img_size=None, mode="rgb"):
+    def load_img_batch(img_paths, img_size=None, mode="rgb", to_float=True):
         images, img_shapes = zip(
-            *(ImageDataset.load_img(path_to_img, img_size=img_size, mode=mode)
+            *(ImageDataset.load_img(path_to_img, img_size=img_size, mode=mode, to_float=to_float)
               for path_to_img in img_paths)
         )
         # If variable image size, stack the images as numpy arrays otherwise
