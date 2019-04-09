@@ -510,20 +510,50 @@ class ImageDataset(NpDataset):
         return img, orig_img_shape
 
     @staticmethod
-    def load_img_batch(img_paths, img_size=None, mode="rgb", to_float=True):
+    def _load_img_batch_known_size(img_paths, img_size, mode='rgb', to_float=True):
+        n = len(img_paths)
+        dtype = np.float32 if to_float else np.uint8
+
+        # Load the first image to get the specs on it
+        img0, img0_shape = ImageDataset.load_img(
+            img_paths[0], img_size=img_size, mode=mode, to_float=to_float)
+
+        images = np.empty((n, *(img0.shape)), dtype=dtype)
+        img_shapes = np.empty((n, 2), dtype=int)
+        img_shapes[0] = img0_shape
+        images[0] = img0
+        # Load the rest of the images
+        for i in range(1, n):
+            images[i], img_shapes[i] = ImageDataset.load_img(
+                img_paths[i], img_size=img_size, mode=mode, to_float=to_float)
+
+        return images
+
+    @staticmethod
+    def _load_img_batch_unknown_size(img_paths, mode='rgb', to_float=True):
         images, img_shapes = zip(
-            *(ImageDataset.load_img(path_to_img, img_size=img_size, mode=mode, to_float=to_float)
+            *(ImageDataset.load_img(path_to_img, img_size=None, mode=mode, to_float=to_float)
               for path_to_img in img_paths)
         )
-        # If variable image size, stack the images as numpy arrays otherwise
-        # create one large numpy array
-        if img_size is None:
-            images = np.array(images, dtype='O')
-        else:
+
+        # If image sizes are the same, create one large np array, otherwise
+        # create an array of numpy array objects
+        if all(img_shapes[0] == img_shape for img_shape in img_shapes):
             images = np.stack(images)
+        else:
+            images = np.array(images, dtype='O')
+
         # Turn the img shapes into an array
         img_shapes = np.array(img_shapes)
+
         return images, img_shapes
+
+    @staticmethod
+    def load_img_batch(img_paths, img_size=None, mode="rgb", to_float=True):
+        if img_size is None:
+            return ImageDataset._load_img_batch_unknown_size(img_paths, mode=mode, to_float=to_float)
+        else:
+            return ImageDataset._load_img_batch_known_size(img_paths, img_size=img_size, mode=mode, to_float=to_float)
 
     def create_batch(self, batch_indicies):
         filenames = self.x[batch_indicies]

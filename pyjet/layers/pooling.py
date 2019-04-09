@@ -12,8 +12,12 @@ from .. import backend as J
 
 def build_strided_pool(name, kernel_size, stride=None, padding=1, dilation=1):
 
-    layer = StridedPool.pool_funcs[name](
-        kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation)
+    params = dict(kernel_size=kernel_size, stride=stride,
+                  padding=padding, dilation=dilation)
+    # Average pooling does not have dilation in pytorch
+    if 'avg' in name:
+        params.pop('dilation')
+    layer = StridedPool.pool_funcs[name](**params)
     logging.info("Creating layer: %r" % layer)
     return layer
 
@@ -152,16 +156,16 @@ class SequenceMaxPooling1D(MaxPooling1D):
 
 class AveragePooling1D(Strided1D):
 
-    def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
+    def __init__(self, kernel_size, stride=None, padding='same'):
         super(AveragePooling1D, self).__init__("avg1d", kernel_size,
-                                               stride=stride, padding=padding, dilation=dilation)
+                                               stride=stride, padding=padding)
 
 
 class AveragePooling2D(Strided2D):
 
-    def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
+    def __init__(self, kernel_size, stride=None, padding='same'):
         super(AveragePooling2D, self).__init__("avg2d", kernel_size,
-                                               stride=stride, padding=padding, dilation=dilation)
+                                               stride=stride, padding=padding)
 
 
 class MaxPooling2D(Strided2D):
