@@ -527,7 +527,7 @@ class ImageDataset(NpDataset):
             images[i], img_shapes[i] = ImageDataset.load_img(
                 img_paths[i], img_size=img_size, mode=mode, to_float=to_float)
 
-        return images
+        return images, img_shapes
 
     @staticmethod
     def _load_img_batch_unknown_size(img_paths, mode='rgb', to_float=True):
