@@ -88,6 +88,7 @@ class BatchGenerator(object):
     """
 
     def __init__(self, steps_per_epoch=None, batch_size=None):
+        # These are included to expose them to the outside code. It's sometimes useful for training code
         self.steps_per_epoch = steps_per_epoch
         self.batch_size = batch_size
 
@@ -501,15 +502,14 @@ class ImageDataset(NpDataset):
         "gray": lambda x: rgb2gray(x)[:, :, np.newaxis],
     }
 
-    def __init__(self, x, y=None, ids=None, img_size=None, mode="rgb"):
+    def __init__(self, x, y=None, ids=None, img_size=None, mode="rgb", to_float=True):
         super(ImageDataset, self).__init__(x, y=y, ids=ids)
         self.img_size = img_size
         assert mode in ImageDataset.MODE2FUNC, "Invalid mode %s" % mode
         self.mode = mode
+        self.to_float = to_float
         logging.info(
-            "Creating ImageDataset(img_size={img_size}, mode={mode}".format(
-                img_size=self.img_size, mode=self.mode
-            )
+            f"Creating ImageDataset(img_size={img_size}, mode={mode}, to_float={to_float})"
         )
 
     @staticmethod
@@ -607,7 +607,9 @@ class ImageDataset(NpDataset):
 
     def create_batch(self, batch_indicies):
         filenames = self.x[batch_indicies]
-        x = self.load_img_batch(filenames, img_size=self.img_size, mode=self.mode)[0]
+        x, _ = self.load_img_batch(
+            filenames, img_size=self.img_size, mode=self.mode, to_float=self.to_float
+        )
 
         if self.output_labels:
             return x, self.y[batch_indicies]

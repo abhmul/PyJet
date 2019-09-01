@@ -111,7 +111,6 @@ print("Loading the model")
 model.load_state("mnist_pyjet.state")
 # Test it on the test set
 test_datagen = NpDataset(xte).flow(batch_size=1000, shuffle=False)
-model.reset_stats()
 test_preds = model.predict_generator(test_datagen, test_datagen.steps_per_epoch)
 num_test = xte.shape[0]
 
