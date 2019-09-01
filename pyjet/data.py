@@ -31,7 +31,7 @@ class Dataset(object):
 
     def __len__(self):
         """The length is used downstream by the generator if it is not inf."""
-        return float('inf')
+        return float("inf")
 
     # def log(self, statement, verbosity):
     #     if self.verbosity >= verbosity:
@@ -47,12 +47,14 @@ class Dataset(object):
         """
         raise NotImplementedError()
 
-    def flow(self,
-             steps_per_epoch=None,
-             batch_size=None,
-             shuffle=True,
-             replace=False,
-             seed=None):
+    def flow(
+        self,
+        steps_per_epoch=None,
+        batch_size=None,
+        shuffle=True,
+        replace=False,
+        seed=None,
+    ):
         """
         This method creates a generator for the data.
 
@@ -66,7 +68,8 @@ class Dataset(object):
             batch_size=batch_size,
             shuffle=shuffle,
             replace=replace,
-            seed=seed)
+            seed=seed,
+        )
 
     def validation_split(self, split=0.2, **kwargs):
         raise NotImplementedError()
@@ -115,13 +118,15 @@ class DatasetGenerator(BatchGenerator):
         seed -- A seed for the random number generator (optional).
     """
 
-    def __init__(self,
-                 dataset,
-                 steps_per_epoch=None,
-                 batch_size=None,
-                 shuffle=True,
-                 replace=False,
-                 seed=None):
+    def __init__(
+        self,
+        dataset,
+        steps_per_epoch=None,
+        batch_size=None,
+        shuffle=True,
+        replace=False,
+        seed=None,
+    ):
         super(DatasetGenerator, self).__init__(steps_per_epoch, batch_size)
         self.dataset = dataset
         self.shuffle = shuffle
@@ -131,25 +136,29 @@ class DatasetGenerator(BatchGenerator):
         self.lock = threading.Lock()
 
         # Some input checking
-        check = (int(self.steps_per_epoch is not None) +
-                 int(self.batch_size is not None) +
-                 int(len(self.dataset) != float("inf")))
+        check = (
+            int(self.steps_per_epoch is not None)
+            + int(self.batch_size is not None)
+            + int(len(self.dataset) != float("inf"))
+        )
         if check < 2:
             raise ValueError(
                 "2 of the following must be defined: len(dataset),"
-                " steps_per_epoch, and batch_size.")
+                " steps_per_epoch, and batch_size."
+            )
         # Otherwise, we're good, infer the missing info
-        if len(self.dataset) != float('inf'):
+        if len(self.dataset) != float("inf"):
             self.index_array = np.arange(len(self.dataset))
         if self.batch_size is None:
             if self.steps_per_epoch is None:
                 raise ValueError()
             self.batch_size = int(
-                (len(self.dataset) + self.steps_per_epoch - 1) /
-                self.steps_per_epoch)
+                (len(self.dataset) + self.steps_per_epoch - 1) / self.steps_per_epoch
+            )
         if self.steps_per_epoch is None:
             self.steps_per_epoch = int(
-                (len(self.dataset) + self.batch_size - 1) / self.batch_size)
+                (len(self.dataset) + self.batch_size - 1) / self.batch_size
+            )
         # Set the seed if we have one
         if self.seed is not None:
             np.random.seed(self.seed)
@@ -179,10 +188,9 @@ class DatasetGenerator(BatchGenerator):
                 np.random.shuffle(self.index_array)
             for i in range(0, len(self.index_array), self.batch_size):
                 if self.replace:
-                    yield (np.random.choice(self.index_array, self.batch_size,
-                                            True), )
+                    yield (np.random.choice(self.index_array, self.batch_size, True),)
                 else:
-                    yield (self.index_array[i:i + self.batch_size], )
+                    yield (self.index_array[i : i + self.batch_size],)
 
     def __next__(self):
         # This is a critical section, so we lock when we need the next indicies
@@ -228,36 +236,57 @@ class NpDataset(Dataset):
     # Arguments
         x -- The input data as a numpy array
         y -- The target data as a numpy array (optional)
+        ids -- The ids corresponding to each example (optional)
+        weights -- The weight to apply to each label
     """
 
-    # TODO define the kfold method for NpDataset
-
-    def __init__(self, x, y=None, ids=None):
+    def __init__(self, x, y=None, ids=None, weights=None):
         super(NpDataset, self).__init__()
 
         self.x = x
         self.y = y
         self.ids = ids
+        self.weights = weights
 
         assert isinstance(self.x, np.ndarray), "x must be a numpy array."
         if self.y is not None:
-            assert isinstance(self.y, np.ndarray), "y must be a numpy array " \
-                "or None."
+            assert isinstance(self.y, np.ndarray), "y must be a numpy array or None."
         if self.ids is not None:
-            assert isinstance(self.ids, np.ndarray), "ids must be a numpy " \
-                "or None."
+            assert isinstance(
+                self.ids, np.ndarray
+            ), "ids must be a numpy array or None."
+        if self.weights is not None:
+            assert isinstance(
+                self.weights, np.ndarray
+            ), "weights must be a numpy or None."
 
         self.output_labels = self.has_labels
         if self.has_labels:
-            assert len(self.x) == len(
-                self.y), ("Data and labels must have same number of" +
-                          "samples. X has shape ", len(x), " and Y has shape ",
-                          len(y), ".")
+            assert len(self.x) == len(self.y), (
+                "Data and labels must have same number of" + "samples. X has shape ",
+                len(x),
+                " and Y has shape ",
+                len(y),
+                ".",
+            )
         if self.has_ids:
-            assert len(self.x) == len(
-                self.ids), ("Data and ids must have same number of" +
-                            "samples. X has shape ", len(x),
-                            " and ids has shape ", len(ids), ".")
+            assert len(self.x) == len(self.ids), (
+                "Data and ids must have same number of" + "samples. X has shape ",
+                len(x),
+                " and ids has shape ",
+                len(ids),
+                ".",
+            )
+
+        self.output_weights = self.output_labels and self.has_weights
+        if self.has_weights:
+            assert len(self.x) == len(self.weights), (
+                "Data and weights must have same number of samples. X has shape ",
+                len(x),
+                " and weights has shape ",
+                len(weights),
+                ".",
+            )
 
     def __len__(self):
         return len(self.x)
@@ -267,6 +296,10 @@ class NpDataset(Dataset):
         return self.ids is not None
 
     @property
+    def has_weights(self):
+        return self.weights is not None
+
+    @property
     def has_labels(self):
         return self.y is not None
 
@@ -274,14 +307,14 @@ class NpDataset(Dataset):
         self.output_labels = not self.output_labels
 
     def create_batch(self, batch_indicies):
-        outputs = [
-            self.x[batch_indicies],
-        ]
+        batch_x = self.x[batch_indicies]
         if self.output_labels:
-            outputs.append(self.y[batch_indicies])
-        if not self.output_labels:
-            return outputs[0]
-        return outputs[0], outputs[1]
+            batch_y = self.y[batch_indicies]
+            if self.output_weights:
+                batch_weights = self.weights[batch_indicies]
+                return batch_x, (batch_y, batch_weights)
+            return batch_x, batch_y
+        return batch_x
 
     @staticmethod
     def get_stratified_split_indicies(split, shuffle, seed, stratify_by):
@@ -299,8 +332,7 @@ class NpDataset(Dataset):
                 label_mask = stratify_by == unq_label
             else:
                 non_batch_dims = tuple(range(1, stratify_by.ndim))
-                label_mask = np.all(stratify_by == unq_label,
-                                    axis=non_batch_dims)
+                label_mask = np.all(stratify_by == unq_label, axis=non_batch_dims)
             # Get the indicies where the label matches
             label_inds = np.where(label_mask)[0]
             if shuffle:
@@ -316,15 +348,14 @@ class NpDataset(Dataset):
             np.random.shuffle(val_split)
         return train_split, val_split
 
-    def get_split_indicies(self, split, shuffle, seed, stratified,
-                           stratify_by):
+    def get_split_indicies(self, split, shuffle, seed, stratified, stratify_by):
         if stratified:
             if stratify_by is None:
                 stratify_by = self.y
-            assert stratify_by is not None, "Data must have labels to " \
-                                            "stratify by."
-            assert len(stratify_by) == len(self), "Labels to stratify by " \
-                "have same length as the dataset."
+            assert stratify_by is not None, "Data must have labels to " "stratify by."
+            assert len(stratify_by) == len(self), (
+                "Labels to stratify by " "have same length as the dataset."
+            )
 
         if shuffle:
             if seed is not None:
@@ -332,7 +363,8 @@ class NpDataset(Dataset):
 
         if stratified:
             train_split, val_split = self.get_stratified_split_indicies(
-                split, shuffle, seed, stratify_by)
+                split, shuffle, seed, stratify_by
+            )
         else:
             # Default technique of splitting the data
             split_ind = int(split * len(self))
@@ -368,12 +400,9 @@ class NpDataset(Dataset):
 
             yield np.concatenate([train_split_a, train_split_b]), val_split
 
-    def validation_split(self,
-                         split=0.2,
-                         shuffle=False,
-                         seed=None,
-                         stratified=False,
-                         stratify_by=None):
+    def validation_split(
+        self, split=0.2, shuffle=False, seed=None, stratified=False, stratify_by=None
+    ):
         """
         Splits the NpDataset into two smaller datasets based on the split
 
@@ -404,15 +433,18 @@ class NpDataset(Dataset):
             so you don't do this splitting in memory.
         """
         train_split, val_split = self.get_split_indicies(
-            split, shuffle, seed, stratified, stratify_by)
+            split, shuffle, seed, stratified, stratify_by
+        )
         train_data = self.__class__(
             self.x[train_split],
             y=None if not self.has_labels else self.y[train_split],
-            ids=None if not self.has_ids else self.ids[train_split])
+            ids=None if not self.has_ids else self.ids[train_split],
+        )
         val_data = self.__class__(
             self.x[val_split],
             y=None if not self.has_labels else self.y[val_split],
-            ids=None if not self.has_ids else self.ids[val_split])
+            ids=None if not self.has_ids else self.ids[val_split],
+        )
         return train_data, val_data
 
     def kfold(self, k=5, shuffle=False, seed=None):
@@ -443,14 +475,17 @@ class NpDataset(Dataset):
             train_data = self.__class__(
                 self.x[train_split],
                 y=None if not self.has_labels else self.y[train_split],
-                ids=None if not self.has_ids else self.ids[train_split])
+                ids=None if not self.has_ids else self.ids[train_split],
+            )
             val_data = self.__class__(
                 self.x[val_split],
                 y=None if not self.has_labels else self.y[val_split],
-                ids=None if not self.has_ids else self.ids[val_split])
+                ids=None if not self.has_ids else self.ids[val_split],
+            )
             yield train_data, val_data
 
 
+# TODO: Add weights to other NPDataset models
 class ImageDataset(NpDataset):
     """
         A Dataset that is built from a numpy array of filenames for images
@@ -463,7 +498,7 @@ class ImageDataset(NpDataset):
     MODE2FUNC = {
         "rgb": lambda x: x,
         "ycbcr": rgb2ycbcr,
-        "gray": lambda x: rgb2gray(x)[:, :, np.newaxis]
+        "gray": lambda x: rgb2gray(x)[:, :, np.newaxis],
     }
 
     def __init__(self, x, y=None, ids=None, img_size=None, mode="rgb"):
@@ -473,7 +508,9 @@ class ImageDataset(NpDataset):
         self.mode = mode
         logging.info(
             "Creating ImageDataset(img_size={img_size}, mode={mode}".format(
-                img_size=self.img_size, mode=self.mode))
+                img_size=self.img_size, mode=self.mode
+            )
+        )
 
     @staticmethod
     def load_img(path_to_img, img_size=None, mode="rgb", to_float=True):
@@ -492,17 +529,17 @@ class ImageDataset(NpDataset):
         orig_img_shape = img.shape[:2]
         # Resize to the input size
         if img_size is not None and img_size != orig_img_shape:
-            img = resize(
-                img, img_size, mode='constant',
-                preserve_range=True).astype(np.uint8)
+            img = resize(img, img_size, mode="constant", preserve_range=True).astype(
+                np.uint8
+            )
         if to_float:
             # Normalize the image
             if mode == "rgb":
-                img = img / 255.
+                img = img / 255.0
             elif mode == "ycbcr":
-                img = img / 235.
-            elif mode == 'gray':
-                img = img / 255.
+                img = img / 235.0
+            elif mode == "gray":
+                img = img / 255.0
         else:
             # Use uint8 to keep mem low
             img = img.astype(np.uint8, copy=False)
@@ -510,30 +547,39 @@ class ImageDataset(NpDataset):
         return img, orig_img_shape
 
     @staticmethod
-    def _load_img_batch_known_size(img_paths, img_size, mode='rgb', to_float=True):
+    def _load_img_batch_known_size(
+        img_paths, img_size, mode="rgb", to_float=True, progress=False
+    ):
         n = len(img_paths)
         dtype = np.float32 if to_float else np.uint8
 
         # Load the first image to get the specs on it
         img0, img0_shape = ImageDataset.load_img(
-            img_paths[0], img_size=img_size, mode=mode, to_float=to_float)
+            img_paths[0], img_size=img_size, mode=mode, to_float=to_float
+        )
 
         images = np.empty((n, *(img0.shape)), dtype=dtype)
         img_shapes = np.empty((n, 2), dtype=int)
         img_shapes[0] = img0_shape
         images[0] = img0
         # Load the rest of the images
+
         for i in range(1, n):
             images[i], img_shapes[i] = ImageDataset.load_img(
-                img_paths[i], img_size=img_size, mode=mode, to_float=to_float)
+                img_paths[i], img_size=img_size, mode=mode, to_float=to_float
+            )
 
         return images, img_shapes
 
     @staticmethod
-    def _load_img_batch_unknown_size(img_paths, mode='rgb', to_float=True):
+    def _load_img_batch_unknown_size(img_paths, mode="rgb", to_float=True):
         images, img_shapes = zip(
-            *(ImageDataset.load_img(path_to_img, img_size=None, mode=mode, to_float=to_float)
-              for path_to_img in img_paths)
+            *(
+                ImageDataset.load_img(
+                    path_to_img, img_size=None, mode=mode, to_float=to_float
+                )
+                for path_to_img in img_paths
+            )
         )
 
         # If image sizes are the same, create one large np array, otherwise
@@ -541,7 +587,7 @@ class ImageDataset(NpDataset):
         if all(img_shapes[0] == img_shape for img_shape in img_shapes):
             images = np.stack(images)
         else:
-            images = np.array(images, dtype='O')
+            images = np.array(images, dtype="O")
 
         # Turn the img shapes into an array
         img_shapes = np.array(img_shapes)
@@ -551,14 +597,17 @@ class ImageDataset(NpDataset):
     @staticmethod
     def load_img_batch(img_paths, img_size=None, mode="rgb", to_float=True):
         if img_size is None:
-            return ImageDataset._load_img_batch_unknown_size(img_paths, mode=mode, to_float=to_float)
+            return ImageDataset._load_img_batch_unknown_size(
+                img_paths, mode=mode, to_float=to_float
+            )
         else:
-            return ImageDataset._load_img_batch_known_size(img_paths, img_size=img_size, mode=mode, to_float=to_float)
+            return ImageDataset._load_img_batch_known_size(
+                img_paths, img_size=img_size, mode=mode, to_float=to_float
+            )
 
     def create_batch(self, batch_indicies):
         filenames = self.x[batch_indicies]
-        x = self.load_img_batch(
-            filenames, img_size=self.img_size, mode=self.mode)[0]
+        x = self.load_img_batch(filenames, img_size=self.img_size, mode=self.mode)[0]
 
         if self.output_labels:
             return x, self.y[batch_indicies]
@@ -576,15 +625,14 @@ class ImageMaskDataset(ImageDataset):
 
     def create_batch(self, batch_indicies):
         filenames = self.x[batch_indicies]
-        x = self.load_img_batch(
-            filenames, img_size=self.img_size, mode=self.mode)[0]
+        x = self.load_img_batch(filenames, img_size=self.img_size, mode=self.mode)[0]
 
         if self.output_labels:
             # Load the output masks
             filenames = self.y[batch_indicies]
-            y = self.load_img_batch(
-                filenames, img_size=self.img_size, mode='gray'
-            )[0][:, :, :, 0]
+            y = self.load_img_batch(filenames, img_size=self.img_size, mode="gray")[0][
+                :, :, :, 0
+            ]
             return x, y
 
         return x
