@@ -14,9 +14,9 @@ Custom Pytorch Frontend I gradually build on for my projects. This has pretty mu
 * Integration with useful libraries like `imgaug` and `tqdm`
 
 Below is the console and graph output from running `mnist.py` in the *examples* folder
-[![Example Console](https://github.com/abhmul/PyJet/raw/master/examples/example_console.png)]
+![Example Console](https://github.com/abhmul/PyJet/raw/master/examples/example_console.png)
 
-[![Example Console](https://github.com/abhmul/PyJet/raw/master/examples/example_graph.png)]
+![Example Console](https://github.com/abhmul/PyJet/raw/master/examples/example_graph.png)
 
 
 ## Installation
