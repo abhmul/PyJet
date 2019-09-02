@@ -113,8 +113,8 @@ class FullyConnected(layer.Layer):
 
         # We'll initialize the layers in the first forward call
         self.layers = []
+        self.register_builder(self.__build_layer)
 
-    @utils.builder
     def __build_layer(self, inputs):
         if self.input_shape is None:
             self.input_shape = utils.get_input_shape(inputs)
@@ -130,8 +130,6 @@ class FullyConnected(layer.Layer):
         )
 
     def forward(self, inputs):
-        if not self.built:
-            self.__build_layer(inputs)
         return self.layers(inputs)
 
     def reset_parameters(self):
@@ -297,7 +295,9 @@ class BatchNorm(layer.Layer):
         self.bn_constructor = self.bn_constructors[self.dimension]
         self.bn = None
 
-    @utils.builder
+        # Registrations
+        self.register_builder(self.__build_layer)
+
     def __build_layer(self, inputs):
         self.input_shape = utils.get_input_shape(inputs)
         if self.channels_mode == "channels_last":
@@ -308,8 +308,6 @@ class BatchNorm(layer.Layer):
         self.bn = self.bn_constructor(input_channels)
 
     def forward(self, inputs):
-        if not self.built:
-            self.__build_layer(inputs)
         return self.bn(inputs)
 
 

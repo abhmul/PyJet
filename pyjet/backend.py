@@ -79,7 +79,6 @@ def to_numpy(x):
 
 
 # TODO: Figure out a way to do this with python decorators
-# use_cuda = False
 tensor = partial(torch.tensor, device=device)
 FloatTensor = partial(tensor, dtype=torch.float)
 DoubleTensor = partial(tensor, dtype=torch.double)

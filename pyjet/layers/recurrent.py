@@ -93,8 +93,9 @@ class RNN(layer.Layer):
 
         # Build the layers
         self.rnn_layers = []
+        # Registrations
+        self.register_builder(self.__build_layer)
 
-    @utils.builder
     def __build_layer(self, inputs):
         if self.input_shape is None:
             # We weren't passed in an input shape, so deduce from dummy inputs
@@ -113,8 +114,6 @@ class RNN(layer.Layer):
         return input_size
 
     def forward(self, x):
-        if not self.built:
-            self.__build_layer(x)
         x, states = self.rnn_layers(x)
         if not self.return_sequences:
             if self.bidirectional:

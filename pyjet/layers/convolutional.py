@@ -164,6 +164,7 @@ class Conv(layer.Layer):
 
         # Build the layers
         self.conv_layers = []
+        self.register_builder(self.__build_layer)
 
     def get_same_padding(self, input_len):
         total_padding = int(
@@ -193,7 +194,6 @@ class Conv(layer.Layer):
         layer = getattr(self.conv_layers, f"conv-{i}")
         return layer.weight if not bias else layer.bias
 
-    @utils.builder
     def __build_layer(self, inputs):
         if self.input_shape is None:
             self.input_shape = utils.get_input_shape(inputs)
@@ -234,8 +234,6 @@ class Conv(layer.Layer):
         )
 
     def forward(self, inputs):
-        if not self.built:
-            self.__build_layer(inputs)
         # Expect inputs as BatchSize x Length1 x ... x LengthN x Filters
         if self.channels_mode == "channels_last":
             inputs = self.fix_input(inputs)

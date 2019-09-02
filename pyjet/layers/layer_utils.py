@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .. import backend as J
+from ..utils import deprecated
 
 pool_types = {
     "no_pool": lambda *args, **kwargs: lambda x: x,
@@ -58,6 +59,15 @@ def get_shape_no_channels(inputs, channels_mode=J.channels_mode):
         return no_batch_size[:-1]
 
 
+def get_channels(inputs, channels_mode=J.channels_mode):
+    input_shape = get_input_shape(inputs)
+    if channels_mode == "channels_first":
+        return input_shape[0]
+    else:
+        return input_shape[-1]
+
+
+@deprecated
 def builder(func):
     def build_layer(self, *args, **kwargs):
         assert not self.built, "Cannot build a layer multiple times!"

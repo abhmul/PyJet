@@ -12,22 +12,23 @@ from .. import backend as J
 
 def build_strided_pool(name, kernel_size, stride=None, padding=1, dilation=1):
 
-    params = dict(kernel_size=kernel_size, stride=stride,
-                  padding=padding, dilation=dilation)
+    params = dict(
+        kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation
+    )
     # Average pooling does not have dilation in pytorch
-    if 'avg' in name:
-        params.pop('dilation')
+    if "avg" in name:
+        params.pop("dilation")
     layer = StridedPool.pool_funcs[name](**params)
     logging.info("Creating layer: %r" % layer)
     return layer
 
 
 class UpSampling(layer.Layer):
-
-    def __init__(self, size=None, scale_factor=None, mode='nearest'):
+    def __init__(self, size=None, scale_factor=None, mode="nearest"):
         super(UpSampling, self).__init__()
         self.upsampling = partial(
-            F.interpolate, size=size, scale_factor=scale_factor, mode=mode)
+            F.interpolate, size=size, scale_factor=scale_factor, mode=mode
+        )
         self.size = size
         self.scale_factor = scale_factor
         self.mode = mode
@@ -41,7 +42,8 @@ class UpSampling(layer.Layer):
     def calc_input_size(self, output_size):
         if self.size is not None:
             raise ValueError(
-                "Cannot know input size if deterministic output size is used")
+                "Cannot know input size if deterministic output size is used"
+            )
         else:
             return output_size / self.scale_factor
 
@@ -63,7 +65,6 @@ class UpSampling(layer.Layer):
 
 
 class UpSampling2D(UpSampling):
-
     def fix_input(self, inputs):
         return inputs.permute(0, 3, 1, 2).contiguous()
 
@@ -73,16 +74,18 @@ class UpSampling2D(UpSampling):
 
 class StridedPool(layer.Layer):
 
-    pool_funcs = {"max1d": nn.MaxPool1d,
-                  "max2d": nn.MaxPool2d,
-                  "max3d": nn.MaxPool3d,
-                  "avg1d": nn.AvgPool1d,
-                  "avg2d": nn.AvgPool2d,
-                  "avg3d": nn.AvgPool3d}
+    pool_funcs = {
+        "max1d": nn.MaxPool1d,
+        "max2d": nn.MaxPool2d,
+        "max3d": nn.MaxPool3d,
+        "avg1d": nn.AvgPool1d,
+        "avg2d": nn.AvgPool2d,
+        "avg3d": nn.AvgPool3d,
+    }
 
-    def __init__(self, pool_type, kernel_size, stride=None, padding='same', dilation=1):
+    def __init__(self, pool_type, kernel_size, stride=None, padding="same", dilation=1):
         super(StridedPool, self).__init__()
-        padding = (kernel_size - 1) // 2 if padding == 'same' else padding
+        padding = (kernel_size - 1) // 2 if padding == "same" else padding
         self.pool_type = pool_type
         self.kernel_size = kernel_size
         if stride is None:
@@ -92,19 +95,26 @@ class StridedPool(layer.Layer):
         self.dilation = dilation
 
         self.pool = build_strided_pool(
-            pool_type, kernel_size, stride=stride, padding=padding, dilation=dilation)
+            pool_type, kernel_size, stride=stride, padding=padding, dilation=dilation
+        )
 
     def calc_output_size(self, input_size):
         """
         NOTE: This is designed for pytorch longtensors, if you pass an integer, make sure to cast it back to an
         integer as python3 will perform float division on it
         """
-        output_size = (input_size - self.dilation * (self.kernel_size -
-                                                     1) + 2 * self.padding - 1) // self.stride + 1
+        output_size = (
+            input_size - self.dilation * (self.kernel_size - 1) + 2 * self.padding - 1
+        ) // self.stride + 1
         return output_size
 
     def calc_input_size(self, output_size):
-        return (output_size - 1) * self.stride - 2 * self.padding + 1 + self.dilation * (self.kernel_size - 1)
+        return (
+            (output_size - 1) * self.stride
+            - 2 * self.padding
+            + 1
+            + self.dilation * (self.kernel_size - 1)
+        )
 
     def forward(self, x):
         # Expect x as BatchSize x Length1 x ... x LengthN x Filters
@@ -124,7 +134,6 @@ class StridedPool(layer.Layer):
 
 
 class Strided1D(StridedPool):
-
     def fix_input(self, inputs):
         return inputs.transpose(1, 2)
 
@@ -133,7 +142,6 @@ class Strided1D(StridedPool):
 
 
 class Strided2D(StridedPool):
-
     def fix_input(self, inputs):
         return inputs.permute(0, 3, 1, 2).contiguous()
 
@@ -142,40 +150,42 @@ class Strided2D(StridedPool):
 
 
 class MaxPooling1D(Strided1D):
-
-    def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
-        super(MaxPooling1D, self).__init__("max1d", kernel_size,
-                                           stride=stride, padding=padding, dilation=dilation)
+    def __init__(self, kernel_size, stride=None, padding="same", dilation=1):
+        super(MaxPooling1D, self).__init__(
+            "max1d", kernel_size, stride=stride, padding=padding, dilation=dilation
+        )
 
 
 class SequenceMaxPooling1D(MaxPooling1D):
-
     def forward(self, seq_inputs):
-        return [super(SequenceMaxPooling1D, self).forward(sample.unsqueeze(0)).squeeze(0) for sample in seq_inputs]
+        return [
+            super(SequenceMaxPooling1D, self).forward(sample.unsqueeze(0)).squeeze(0)
+            for sample in seq_inputs
+        ]
 
 
 class AveragePooling1D(Strided1D):
-
-    def __init__(self, kernel_size, stride=None, padding='same'):
-        super(AveragePooling1D, self).__init__("avg1d", kernel_size,
-                                               stride=stride, padding=padding)
+    def __init__(self, kernel_size, stride=None, padding="same"):
+        super(AveragePooling1D, self).__init__(
+            "avg1d", kernel_size, stride=stride, padding=padding
+        )
 
 
 class AveragePooling2D(Strided2D):
-
-    def __init__(self, kernel_size, stride=None, padding='same'):
-        super(AveragePooling2D, self).__init__("avg2d", kernel_size,
-                                               stride=stride, padding=padding)
+    def __init__(self, kernel_size, stride=None, padding="same"):
+        super(AveragePooling2D, self).__init__(
+            "avg2d", kernel_size, stride=stride, padding=padding
+        )
 
 
 class MaxPooling2D(Strided2D):
-    def __init__(self, kernel_size, stride=None, padding='same', dilation=1):
-        super(MaxPooling2D, self).__init__("max2d", kernel_size,
-                                           stride=stride, padding=padding, dilation=dilation)
+    def __init__(self, kernel_size, stride=None, padding="same", dilation=1):
+        super(MaxPooling2D, self).__init__(
+            "max2d", kernel_size, stride=stride, padding=padding, dilation=dilation
+        )
 
 
 class GlobalMaxPooling1D(layer.Layer):
-
     def __init__(self):
         super(GlobalMaxPooling1D, self).__init__()
 
@@ -191,7 +201,6 @@ class GlobalMaxPooling1D(layer.Layer):
 
 
 class SequenceGlobalMaxPooling1D(layer.Layer):
-
     def __init__(self):
         super(SequenceGlobalMaxPooling1D, self).__init__()
 
@@ -207,7 +216,6 @@ class SequenceGlobalMaxPooling1D(layer.Layer):
 
 
 class GlobalAveragePooling1D(layer.Layer):
-
     def __init__(self):
         super(GlobalAveragePooling1D, self).__init__()
 
@@ -223,7 +231,6 @@ class GlobalAveragePooling1D(layer.Layer):
 
 
 class SequenceGlobalAveragePooling1D(layer.Layer):
-
     def __init__(self):
         super(SequenceGlobalAveragePooling1D, self).__init__()
 
@@ -239,7 +246,6 @@ class SequenceGlobalAveragePooling1D(layer.Layer):
 
 
 class KMaxPooling1D(layer.Layer):
-
     def __init__(self, k):
         super(KMaxPooling1D, self).__init__()
         self.k = k

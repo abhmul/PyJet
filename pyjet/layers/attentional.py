@@ -14,9 +14,15 @@ from .. import backend as J
 
 
 class ContextAttention(layer.Layer):
-
-    def __init__(self, units, input_shape=None, activation='tanh',
-                 batchnorm=False, padded_input=True, dropout=0.0):
+    def __init__(
+        self,
+        units,
+        input_shape=None,
+        activation="tanh",
+        batchnorm=False,
+        padded_input=True,
+        dropout=0.0,
+    ):
         super(ContextAttention, self).__init__()
         self.units = units
         self.input_shape = input_shape
@@ -29,18 +35,23 @@ class ContextAttention(layer.Layer):
         self.context_vector = None
         self.context_attention = None
 
-    @utils.builder
+        # Registrations
+        self.register_builder(self.__build_layer)
+
     def __build_layer(self, inputs):
         assert self.input_shape is None
         # Use the 0th input since the inputs are time distributed
         self.input_shape = utils.get_input_shape(inputs[0])
         self.attentional_module = core.FullyConnected(
-            self.input_shape[0], input_shape=self.input_shape,
-            activation=self.activation_name, batchnorm=self.batchnorm,
-            dropout=self.dropout)
+            self.input_shape[0],
+            input_shape=self.input_shape,
+            activation=self.activation_name,
+            batchnorm=self.batchnorm,
+            dropout=self.dropout,
+        )
         self.context_vector = core.FullyConnected(
-            self.units, input_shape=self.input_shape, use_bias=False,
-            batchnorm=False)
+            self.units, input_shape=self.input_shape, use_bias=False, batchnorm=False
+        )
         self.context_attention = wrappers.TimeDistributed(
             nn.Sequential(self.attentional_module, self.context_vector)
         )
@@ -73,11 +84,18 @@ class ContextAttention(layer.Layer):
 
 
 class ContextMaxPool1D(layer.Layer):
-
-    def __init__(self, units=1, input_shape=None, activation='linear',
-                 batchnorm=False, padded_input=True, dropout=0.0):
+    def __init__(
+        self,
+        units=1,
+        input_shape=None,
+        activation="linear",
+        batchnorm=False,
+        padded_input=True,
+        dropout=0.0,
+    ):
         super(ContextMaxPool1D, self).__init__()
         self.units = units
+        self.input_shape = input_shape
         self.activation = activation
         self.batchnorm = batchnorm
         self.padded_input = padded_input
@@ -86,18 +104,25 @@ class ContextMaxPool1D(layer.Layer):
         self.max_pool = pooling.SequenceGlobalMaxPooling1D()
         self.context_attention = None
 
+        # Registrations
+        self.register_builder(self.__build_layer)
 
-    @utils.builder
     def __build_layer(self, inputs):
         assert self.input_shape is None
         # Use the 0th input since the inputs are time distributed
         self.input_shape = utils.get_input_shape(inputs[0])
         self.context_attention = nn.ModuleList(
-            [wrappers.TimeDistributed(
-                core.FullyConnected(self.input_shape[0],
-                    input_shape=self.input_shape, batchnorm=self.batchnorm,
-                    activation=self.activation, dropout=self.dropout
-                ) for _ in range(self.units))
+            [
+                wrappers.TimeDistributed(
+                    core.FullyConnected(
+                        self.input_shape[0],
+                        input_shape=self.input_shape,
+                        batchnorm=self.batchnorm,
+                        activation=self.activation,
+                        dropout=self.dropout,
+                    )
+                    for _ in range(self.units)
+                )
             ]
         )
 
@@ -112,7 +137,9 @@ class ContextMaxPool1D(layer.Layer):
         if not self.built:
             self.__build_layer(x)
         # The input comes in as B x Li x E
-        out_heads = torch.stack([self.max_pool(head(x)) for head in self.context_attention], dim=1)  # B x K x H
+        out_heads = torch.stack(
+            [self.max_pool(head(x)) for head in self.context_attention], dim=1
+        )  # B x K x H
         return out_heads.squeeze_(1)
 
     def reset_parameters(self):
