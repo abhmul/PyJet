@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from functools import partial
 
 import torch
 from torch.autograd import Variable  # DO NOT REMOVE
@@ -9,54 +10,38 @@ from . import utils
 
 # Config Settings
 config = DEFAULT_CONFIG = dict(epsilon=1e-11, channels_mode="channels_last")
-CONFIG_PATH = os.path.join(utils.safe_open_dir(
-    os.path.expanduser("~/.pyjet/")), "pyjet.json")
+CONFIG_PATH = os.path.join(
+    utils.safe_open_dir(os.path.expanduser("~/.pyjet/")), "pyjet.json"
+)
 # Create the config if it doesn't exist
 if not os.path.exists(CONFIG_PATH):
-    with open(CONFIG_PATH, 'w') as config_file:
+    with open(CONFIG_PATH, "w") as config_file:
         json.dump(DEFAULT_CONFIG, config_file)
 # Load the config
-with open(CONFIG_PATH, 'r') as config_file:
+with open(CONFIG_PATH, "r") as config_file:
     config = json.load(config_file)
 
 
 def validate_config(config_dict):
-    assert config_dict["channels_mode"] in \
-        {"channels_first", "channels_last"}, "Channels mode must be either " \
-        "channels_first or channels_last, " \
+    assert config_dict["channels_mode"] in {"channels_first", "channels_last"}, (
+        "Channels mode must be either "
+        "channels_first or channels_last, "
         "not {}".format(config_dict["channels_mode"])
+    )
 
 
 # Define the global backend variables
 validate_config(config)
-epsilon = config['epsilon']
+epsilon = config["epsilon"]
 channels_mode = config["channels_mode"]
-logging.info("PyJet using config: epsilon={epsilon}, channels_mode"
-             "={channels_mode}".format(**config))
+logging.info(
+    "PyJet using config: epsilon={epsilon}, channels_mode"
+    "={channels_mode}".format(**config)
+)
 
 # Set up the use of cuda if available
-use_cuda = torch.cuda.is_available()
-
-
-def cudaFloatTensor(x):
-    # Optimization for casting things to cuda tensors
-    return torch.FloatTensor(x).cuda()
-
-
-def cudaLongTensor(x):
-    return torch.LongTensor(x).cuda()
-
-
-def cudaByteTensor(x):
-    return torch.ByteTensor(x).cuda()
-
-
-def cudaZeros(*args):
-    return torch.zeros(*args).cuda()
-
-
-def cudaOnes(*args):
-    return torch.ones(*args).cuda()
+use_cuda = torch.cuda.device_count() > 0
+device = torch.cuda.current_device()
 
 
 def flatten(x):
@@ -93,26 +78,25 @@ def to_numpy(x):
     return x.cpu().numpy() if use_cuda else x.numpy()
 
 
-def arange(start, end=None, step=1, out=None):
-    if end is None:
-        x = torch.arange(0, start, step=step, out=out)
-    else:
-        x = torch.arange(start, end, step=step, out=out)
-    return x.cuda() if use_cuda else x
-
-
-def rand(*sizes, out=None):
-    x = torch.rand(*sizes, out=out)
-    return x.cuda() if use_cuda else x
-
-
+# TODO: Figure out a way to do this with python decorators
 # use_cuda = False
-FloatTensor = cudaFloatTensor if use_cuda else torch.FloatTensor
-LongTensor = cudaLongTensor if use_cuda else torch.LongTensor
-ByteTensor = cudaByteTensor if use_cuda else torch.ByteTensor
+tensor = partial(torch.tensor, device=device)
+FloatTensor = partial(tensor, dtype=torch.float)
+DoubleTensor = partial(tensor, dtype=torch.double)
+HalfTensor = partial(tensor, dtype=torch.half)
+ByteTensor = partial(tensor, dtype=torch.uint8)
+CharTensor = partial(tensor, dtype=torch.int8)
+ShortTensor = partial(tensor, dtype=torch.short)
+IntTensor = partial(tensor, dtype=torch.int)
+LongTensor = partial(tensor, dtype=torch.long)
+BoolTensor = partial(tensor, dtype=torch.bool)
+
 Tensor = FloatTensor
+
 # Tensor fillers
-zeros = cudaZeros if use_cuda else torch.zeros
-ones = cudaOnes if use_cuda else torch.ones
+zeros = partial(torch.zeros, device=device)
+ones = partial(torch.ones, device=device)
+rand = partial(torch.rand, device=device)
+arange = partial(torch.arange, device=device)
 
 print("PyJet is using " + ("CUDA" if use_cuda else "CPU") + ".")

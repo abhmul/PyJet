@@ -11,6 +11,7 @@ from .training import TrainingLogs, LossManager, OptimizerManager
 from .metrics import Metric, AverageMetric
 from .callbacks import ProgressBar, CallbackList
 from .registry import load_metric
+from .layers import Layer
 
 python_iterables = {list, set, tuple, frozenset}
 
@@ -43,8 +44,8 @@ def standardize_metric_input(metrics):
 
 
 # TODO Not sure whether I'll need to seperate RL models and SL models.
-# Hopefully I planned this out right
-class SLModel(nn.Module):
+# The SLModel is just another layer with additional training routines
+class SLModel(Layer):
     def __init__(self, torch_module=None):
         super(SLModel, self).__init__()
         self.to_cuda = J.use_cuda
@@ -63,8 +64,9 @@ class SLModel(nn.Module):
         params = super(SLModel, self).parameters(*args, **kwargs)
         param_peek = peek(params)
         if param_peek is None:
-            warnings.warn("Model has no parameters! Did you forget to call "
-                          "infer_inputs?")
+            warnings.warn(
+                "Model has no parameters! Did you forget to call " "infer_inputs?"
+            )
             return []
         return param_peek[1]
 
@@ -105,11 +107,8 @@ class SLModel(nn.Module):
         inputs = standardize_list_input(inputs)
         # Use 'loss_in' if no inputs provided
         if not len(inputs):
-            inputs = ['loss_in']
-        return self.loss_manager.add_loss(loss_fn,
-                                          inputs,
-                                          weight=weight,
-                                          name=name)
+            inputs = ["loss_in"]
+        return self.loss_manager.add_loss(loss_fn, inputs, weight=weight, name=name)
 
     def remove_loss(self, name=None):
         return self.loss_manager.remove_loss(name=name)
@@ -146,9 +145,11 @@ class SLModel(nn.Module):
         # loss_fn
         if loss_fn is not None:
             if len(self.loss_manager):
-                warnings.warn("Loss manager is not empty, but loss_fn passed "
-                              "passed to fit_generator or validate_generator."
-                              " Clearing all past losses.")
+                warnings.warn(
+                    "Loss manager is not empty, but loss_fn passed "
+                    "passed to fit_generator or validate_generator."
+                    " Clearing all past losses."
+                )
                 self.clear_losses()
                 self.add_loss(loss_fn)
 
@@ -170,6 +171,7 @@ class SLModel(nn.Module):
                     # Preds are not used, just hack to make it behave like
                     # metric
                     return self.loss_manager.get_loss_score(name=name)
+
                 metric_aux_loss = AverageMetric(aux_loss)
                 # Change the name for logging
                 metric_aux_loss.__name__ = name
@@ -207,9 +209,7 @@ class SLModel(nn.Module):
         loss.backward()
         [optimizer.step() for optimizer in optimizers]
         # Calculate the metrics
-        metric_scores = [
-            metric(torch_preds, torch_target) for metric in metrics
-        ]
+        metric_scores = [metric(torch_preds, torch_target) for metric in metrics]
         # Clean up some variables
         self.zero_grad()
         del torch_x
@@ -230,9 +230,7 @@ class SLModel(nn.Module):
             torch_preds = self(torch_x)
             preds = self.cast_output_to_numpy(torch_preds)
             # Calculate the metrics
-            metric_scores = [
-                metric(torch_preds, torch_target) for metric in metrics
-            ]
+            metric_scores = [metric(torch_preds, torch_target) for metric in metrics]
             # Clean up some variables
             del torch_x
             del torch_preds
@@ -241,12 +239,9 @@ class SLModel(nn.Module):
                 torch.cuda.empty_cache()
         return metric_scores, preds
 
-    def validate_generator(self,
-                           val_generator,
-                           validation_steps,
-                           loss_fn=None,
-                           metrics=(),
-                           verbose=0):
+    def validate_generator(
+        self, val_generator, validation_steps, loss_fn=None, metrics=(), verbose=0
+    ):
         self.cast_model_to_cuda()
         metrics = standardize_metric_input(metrics)
         if loss_fn is not None or len(self.loss_manager):
@@ -271,16 +266,18 @@ class SLModel(nn.Module):
         callbacks.on_train_end(logs=logs)
         return logs.epoch_logs
 
-    def fit_generator(self,
-                      generator,
-                      steps_per_epoch,
-                      epochs,
-                      validation_data=None,
-                      validation_steps=0,
-                      metrics=(),
-                      callbacks=(),
-                      initial_epoch=0,
-                      verbose=1):
+    def fit_generator(
+        self,
+        generator,
+        steps_per_epoch,
+        epochs,
+        validation_data=None,
+        validation_steps=0,
+        metrics=(),
+        callbacks=(),
+        initial_epoch=0,
+        verbose=1,
+    ):
         self.cast_model_to_cuda()
         # Standardize the input
         optimizers = self.optimizer_manager.optimizers
@@ -293,8 +290,7 @@ class SLModel(nn.Module):
         # Register the model with each callback
         callbacks.set_model(self)
         # Save whether we will need to run validation
-        run_validation = (validation_steps >
-                          0) and validation_data is not None
+        run_validation = (validation_steps > 0) and validation_data is not None
         logs = TrainingLogs()
 
         # Run the callbacks
@@ -312,27 +308,25 @@ class SLModel(nn.Module):
             # Run each step of the epoch with a progress bar
             for step in range(steps_per_epoch):
                 # Run the callbacks
-                callbacks.on_batch_begin(
-                    epoch=epoch, step=step, logs=logs.batch_logs)
+                callbacks.on_batch_begin(epoch=epoch, step=step, logs=logs.batch_logs)
                 x, target = next(generator)
                 b_loss, b_metrics = self.train_on_batch(
-                    x, target, optimizers, loss_fn, metrics)
+                    x, target, optimizers, loss_fn, metrics
+                )
                 # Add stats to the logs
                 logs.log_metric(loss_fn, b_loss)
                 for score, metric in zip(b_metrics, metrics):
                     logs.log_metric(metric, score)
                 # Run the callbacks
-                callbacks.on_batch_end(
-                    epoch=epoch, step=step, logs=logs.batch_logs)
+                callbacks.on_batch_end(epoch=epoch, step=step, logs=logs.batch_logs)
 
             # Check if we need to run validation
             if run_validation:
                 loss_fn = loss_fn.reset()
                 metrics = [metric.reset() for metric in metrics]
                 self.validate_generator(
-                    validation_data,
-                    validation_steps,
-                    metrics=([loss_fn] + metrics))
+                    validation_data, validation_steps, metrics=([loss_fn] + metrics)
+                )
                 # Log the loss and metrics
                 for metric in [loss_fn] + metrics:
                     logs.log_validation_metric(metric)
@@ -386,10 +380,9 @@ class SLModel(nn.Module):
         # Fill in the predictions array
         cur_pred_ind = 0
         for batch_preds in preds:
-            preds_slice = (slice(cur_pred_ind,
-                                 cur_pred_ind + len(batch_preds)), ) + tuple(
-                                     slice(batch_preds.shape[i])
-                                     for i in range(1, batch_preds.ndim))
+            preds_slice = (
+                slice(cur_pred_ind, cur_pred_ind + len(batch_preds)),
+            ) + tuple(slice(batch_preds.shape[i]) for i in range(1, batch_preds.ndim))
             full_preds[preds_slice] = batch_preds
             cur_pred_ind += len(batch_preds)
 
