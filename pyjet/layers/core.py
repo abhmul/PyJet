@@ -17,23 +17,41 @@ def Input(*input_shape):
     # Use 1 for the batch size
     return J.zeros(1, *input_shape)
 
-def build_fully_connected(units, input_shape, use_bias=True, \
-                          activation='linear', num_layers=1, batchnorm=False,
-                          input_dropout=0.0, dropout=0.0):
-    assert len(input_shape) == 1, "Input to FullyConnected layer " \
-        "can only have 1 dimension. {} has {} dimensions" \
+
+def build_fully_connected(
+    units,
+    input_shape,
+    use_bias=True,
+    activation="linear",
+    num_layers=1,
+    batchnorm=False,
+    input_dropout=0.0,
+    dropout=0.0,
+):
+    assert len(input_shape) == 1, (
+        "Input to FullyConnected layer "
+        "can only have 1 dimension. {} has {} dimensions"
         "".format(input_shape, len(input_shape))
+    )
     input_size, output_size = input_shape[0], units
     layer = nn.Sequential()
     if input_dropout:
         layer.add_module(name="input-dropout", module=nn.Dropout(input_dropout))
     for i in range(num_layers):
         layer_input = input_size if i == 0 else output_size
-        layer.add_module(name="fullyconnected-%s" % i, module=nn.Linear(layer_input, output_size, bias=use_bias))
+        layer.add_module(
+            name="fullyconnected-%s" % i,
+            module=nn.Linear(layer_input, output_size, bias=use_bias),
+        )
         if activation != "linear":
-            layer.add_module(name="{}-{}".format(activation, i), module=utils.get_activation_type(activation)())
+            layer.add_module(
+                name="{}-{}".format(activation, i),
+                module=utils.get_activation_type(activation)(),
+            )
         if batchnorm:
-            layer.add_module(name="batchnorm-%s" % i, module=nn.BatchNorm1d(output_size))
+            layer.add_module(
+                name="batchnorm-%s" % i, module=nn.BatchNorm1d(output_size)
+            )
         if dropout:
             layer.add_module(name="dropout-%s" % i, module=nn.Dropout(dropout))
     logging.info("Creating layer: %r" % layer)
@@ -72,10 +90,17 @@ class FullyConnected(layer.Layer):
             2D tensor with shape: `(batch_size, output_size)`.
         """
 
-    def __init__(self, units, input_shape=None,
-                 use_bias=True, activation='linear', num_layers=1,
-                 batchnorm=False,
-                 input_dropout=0.0, dropout=0.0):
+    def __init__(
+        self,
+        units,
+        input_shape=None,
+        use_bias=True,
+        activation="linear",
+        num_layers=1,
+        batchnorm=False,
+        input_dropout=0.0,
+        dropout=0.0,
+    ):
         super(FullyConnected, self).__init__()
         self.units = units
         self.input_shape = input_shape
@@ -94,10 +119,14 @@ class FullyConnected(layer.Layer):
         if self.input_shape is None:
             self.input_shape = utils.get_input_shape(inputs)
         self.layers = build_fully_connected(
-            self.units, self.input_shape, use_bias=self.use_bias,
-            activation=self.activation, num_layers=self.num_layers,
-            batchnorm=self.batchnorm, input_dropout=self.input_dropout,
-            dropout=self.dropout
+            self.units,
+            self.input_shape,
+            use_bias=self.use_bias,
+            activation=self.activation,
+            num_layers=self.num_layers,
+            batchnorm=self.batchnorm,
+            input_dropout=self.input_dropout,
+            dropout=self.dropout,
         )
 
     def forward(self, inputs):
@@ -165,13 +194,20 @@ class Lambda(layer.Layer):
           These layers will be accessible in the forward function by using 'self.[LAYER_NAME]', replacing
           [LAYER_NAME] for whatever the name of the layer you want to access is.
     """
+
     def __init__(self, forward, **layers):
         super(Lambda, self).__init__()
         for layer_name in layers:
             setattr(self, layer_name, layers[layer_name])
         self.layer_names = list(layers.keys())
         self.forward_func = forward
-        self.string = "Lambda: [" + " ".join("%r" % getattr(self, layer_name) for layer_name in self.layer_names) + "]"
+        self.string = (
+            "Lambda: ["
+            + " ".join(
+                "%r" % getattr(self, layer_name) for layer_name in self.layer_names
+            )
+            + "]"
+        )
 
     def __str__(self):
         return self.string
@@ -198,18 +234,23 @@ class MaskedInput(layer.Layer):
           This defaults to 0.
     """
 
-    def __init__(self, mask_value=0.):
+    def __init__(self, mask_value=0.0):
         super(MaskedInput, self).__init__()
-        if mask_value == 'min':
-            self.mask_value_factory = lambda x: torch.min(x.data) - 1.
+        if mask_value == "min":
+            self.mask_value_factory = lambda x: torch.min(x.data) - 1.0
         else:
             self.mask_value_factory = lambda x: mask_value
         self.mask_value = mask_value
-        self.__descriptor = self.__class__.__name__ + "(mask_value=%s)" % self.mask_value
+        self.__descriptor = (
+            self.__class__.__name__ + "(mask_value=%s)" % self.mask_value
+        )
         logging.info("Creating layer: %s" % self.__descriptor)
 
     def forward(self, x, seq_lens):
-        mask = Variable((J.arange(x.size(1)).long().view(1, -1, 1) >= seq_lens.view(-1, 1, 1)), requires_grad=False)
+        mask = Variable(
+            (J.arange(x.size(1)).long().view(1, -1, 1) >= seq_lens.view(-1, 1, 1)),
+            requires_grad=False,
+        )
         mask_value = self.mask_value_factory(x)
         return x.masked_fill(mask, mask_value)
 
@@ -230,6 +271,7 @@ class MaskedInput2D(MaskedInput):
           mask to whatever the smallest value in the batch is minus 1 (usefuly if passing to a max pooling layer).
           This defaults to 0.
     """
+
     def forward(self, x, seq_lens):
         # seq_lens are of shape B x 2
         # x is of shape B x H x W x F
@@ -239,3 +281,48 @@ class MaskedInput2D(MaskedInput):
 
     def __str__(self):
         return self.__descriptor
+
+
+class BatchNorm(layer.Layer):
+
+    bn_constructors = {1: nn.BatchNorm1d, 2: nn.BatchNorm2d, 3: nn.BatchNorm3d}
+
+    def __init__(self, dimension, input_shape=None, channels_mode=J.channels_mode):
+        """Pyjet's implementation of an input-inferring BatchNormalization layer"""
+        super().__init__()
+        self.dimension = dimension
+        self.input_shape = input_shape
+        self.channels_mode = channels_mode
+
+        self.bn_constructor = self.bn_constructors[self.dimension]
+        self.bn = None
+
+    @utils.builder
+    def __build_layer(self, inputs):
+        self.input_shape = utils.get_input_shape(inputs)
+        if self.channels_mode == "channels_last":
+            input_channels = self.input_shape[-1]
+        else:
+            input_channels = self.input_shape[0]
+
+        self.bn = self.bn_constructor(input_channels)
+
+    def forward(self, inputs):
+        if not self.built:
+            self.__build_layer(inputs)
+        return self.bn(inputs)
+
+
+class BatchNorm1D(BatchNorm):
+    def __init__(self, input_shape=None, channels_mode=J.channels_mode):
+        super().__init__(1, input_shape, channels_mode)
+
+
+class BatchNorm2D(BatchNorm):
+    def __init__(self, input_shape=None, channels_mode=J.channels_mode):
+        super().__init__(2, input_shape, channels_mode)
+
+
+class BatchNorm3D(BatchNorm):
+    def __init__(self, input_shape=None, channels_mode=J.channels_mode):
+        super().__init__(3, input_shape, channels_mode)
