@@ -15,6 +15,11 @@ from pyjet.data import NpDataset
 import pyjet.backend as J
 from pyjet.layers import Conv2D, MaxPooling2D, FullyConnected, Input
 from pyjet.callbacks import ModelCheckpoint, Plotter
+from pyjet.hooks import hook_outputs, model_sizes
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # Load the dataset
 try:
@@ -54,6 +59,7 @@ class MNISTModel(SLModel):
         self.fc1 = FullyConnected(50, activation="linear")
         self.fc2 = FullyConnected(10)
 
+        print(model_sizes(self, (1, 28, 28)))
         self.infer_inputs(Input(1, 28, 28))
 
     def forward(self, x):

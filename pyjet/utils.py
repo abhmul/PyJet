@@ -3,6 +3,8 @@ import os
 import logging
 import warnings
 
+python_iterables = {list, set, tuple, frozenset}
+
 
 def resettable(f):
     """
@@ -29,6 +31,20 @@ def safe_open_dir(dirpath):
         logging.info("Directory %s does not exist, creating it" % dirpath)
         os.makedirs(dirpath)
     return dirpath
+
+
+def standardize_list_input(inputs):
+    if type(inputs) in python_iterables:
+        return list(inputs)
+    return [inputs]
+
+
+def destandardize_list_input(inputs):
+    if type(inputs) not in python_iterables:
+        return inputs
+    inputs = list(inputs)
+    assert len(inputs) == 1
+    return inputs[0]
 
 
 def deprecated(func):

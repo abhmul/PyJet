@@ -13,10 +13,13 @@ class Concatenate(layer.Layer):
     dimension over which to concatenate,
     and returns a single tensor, the concatenation of all inputs.
     """
-    def __init__(self):
-        super(Concatenate, self).__init__()
 
-    def forward(self, seq, dim=-1):
+    def __init__(self, dim=-1):
+        super(Concatenate, self).__init__()
+        self.dim = dim
+
+    def forward(self, seq):
+        dim = self.dim
         if dim >= 0:
             dim += 1
         return torch.cat(seq, dim=dim)
@@ -38,6 +41,7 @@ class Add(layer.Layer):
         out = pyjet.layers.FullyConnected(4)(added)
         ```
     """
+
     def __init__(self):
         super(Add, self).__init__()
 

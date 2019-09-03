@@ -45,6 +45,7 @@ def construct_n_layers(
     return layers
 
 
+# TODO: Come up with a better name for this. It's not necessarily input, could be any tensor.
 def get_input_shape(inputs):
     """Gets the shape of the input excluding the batch size"""
     return tuple(inputs.size())[1:]

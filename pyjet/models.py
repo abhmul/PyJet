@@ -12,8 +12,7 @@ from .metrics import Metric, AverageMetric
 from .callbacks import ProgressBar, CallbackList
 from .registry import load_metric
 from .layers import Layer
-
-python_iterables = {list, set, tuple, frozenset}
+from .utils import standardize_list_input
 
 
 def peek(iterable):
@@ -22,12 +21,6 @@ def peek(iterable):
     except StopIteration:
         return None
     return first, itertools.chain([first], iterable)
-
-
-def standardize_list_input(inputs):
-    if type(inputs) in python_iterables:
-        return list(inputs)
-    return [inputs]
 
 
 def standardize_metric_input(metrics):
