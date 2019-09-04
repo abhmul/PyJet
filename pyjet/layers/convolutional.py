@@ -25,6 +25,7 @@ def build_conv(
     num_layers=1,
     input_batchnorm=False,
     batchnorm=False,
+    spectral_norm=False,
     input_dropout=0.0,
     dropout=0.0,
 ):
@@ -51,18 +52,18 @@ def build_conv(
     # Add each layer
     for i in range(num_layers):
         layer_input = input_size if i == 0 else output_size
-        layer.add_module(
-            name="conv-%s" % i,
-            module=Conv.layer_constructors[dimensions](
-                layer_input,
-                output_size,
-                kernel_size,
-                stride=stride,
-                dilation=dilation,
-                groups=groups,
-                bias=use_bias,
-            ),
+        conv = Conv.layer_constructors[dimensions](
+            layer_input,
+            output_size,
+            kernel_size,
+            stride=stride,
+            dilation=dilation,
+            groups=groups,
+            bias=use_bias,
         )
+        if spectral_norm:
+            conv = nn.utils.spectral_norm(conv)
+        layer.add_module(name="conv-%s" % i, module=conv)
         if activation != "linear":
             try:
                 layer.add_module(
@@ -107,6 +108,7 @@ class Conv(layer.Layer):
         num_layers=1,
         input_batchnorm=False,
         batchnorm=False,
+        spectral_norm=False,
         input_dropout=0.0,
         dropout=0.0,
         channels_mode=J.channels_mode,
@@ -158,6 +160,7 @@ class Conv(layer.Layer):
         self.num_layers = num_layers
         self.input_batchnorm = input_batchnorm
         self.batchnorm = batchnorm
+        self.spectral_norm = spectral_norm
         self.input_dropout = input_dropout
         self.dropout = dropout
         self.channels_mode = channels_mode
@@ -215,6 +218,7 @@ class Conv(layer.Layer):
             num_layers=self.num_layers,
             input_batchnorm=self.input_batchnorm,
             batchnorm=self.batchnorm,
+            spectral_norm=self.spectral_norm,
             input_dropout=self.input_dropout,
             dropout=self.dropout,
         )
@@ -272,6 +276,7 @@ class Conv1D(Conv):
         num_layers=1,
         input_batchnorm=False,
         batchnorm=False,
+        spectral_norm=False,
         input_dropout=0.0,
         dropout=0.0,
     ):
@@ -290,6 +295,7 @@ class Conv1D(Conv):
             num_layers=num_layers,
             input_batchnorm=input_batchnorm,
             batchnorm=batchnorm,
+            spectral_norm=spectral_norm,
             input_dropout=input_dropout,
             dropout=dropout,
         )
@@ -321,6 +327,7 @@ class Conv2D(Conv):
         num_layers=1,
         input_batchnorm=False,
         batchnorm=False,
+        spectral_norm=False,
         input_dropout=0.0,
         dropout=0.0,
     ):
@@ -339,6 +346,7 @@ class Conv2D(Conv):
             num_layers=num_layers,
             input_batchnorm=input_batchnorm,
             batchnorm=batchnorm,
+            spectral_norm=spectral_norm,
             input_dropout=input_dropout,
             dropout=dropout,
         )
@@ -371,6 +379,7 @@ class Conv3D(Conv):
         num_layers=1,
         input_batchnorm=False,
         batchnorm=False,
+        spectral_norm=False,
         input_dropout=0.0,
         dropout=0.0,
     ):
@@ -389,6 +398,7 @@ class Conv3D(Conv):
             num_layers=num_layers,
             input_batchnorm=input_batchnorm,
             batchnorm=batchnorm,
+            spectral_norm=spectral_norm,
             input_dropout=input_dropout,
             dropout=dropout,
         )
