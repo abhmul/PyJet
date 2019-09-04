@@ -144,7 +144,7 @@ class LossManager(object):
                 getattr(model, loss_input)
                 for loss_input in self.__loss_input_dict[name]
             ],
-            targets
+            targets,
         )
         return self.__loss_scores[name]
 
@@ -203,12 +203,13 @@ class LossManager(object):
 
         # Get the outputs and reference their values from
         for aux in auxilaries:
+
             def get_aux_loss(aux):
                 val = getattr(stateful_loss_fn, aux)
                 assert val is not None
-                setattr(stateful_loss_fn, aux) = None
+                setattr(stateful_loss_fn, aux, None)
                 return val
-        
+
             self.add_loss(get_aux_loss, inputs, weight=weight, name=aux)
 
     def remove_loss(self, name=None):
