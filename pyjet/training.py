@@ -17,15 +17,16 @@ class GeneratorEnqueuer(data.BatchGenerator):
 
     def __init__(self, generator):
         # Copy the steps per epoch and batch size if it has one
-        if hasattr(generator, "steps_per_epoch") and hasattr(
-                generator, "batch_size"):
+        if hasattr(generator, "steps_per_epoch") and hasattr(generator, "batch_size"):
             super(GeneratorEnqueuer, self).__init__(
                 steps_per_epoch=generator.steps_per_epoch,
-                batch_size=generator.batch_size)
+                batch_size=generator.batch_size,
+            )
         else:
             logging.warning(
                 "Input generator does not have a steps_per_epoch or batch_size "
-                "attribute. Continuing without them.")
+                "attribute. Continuing without them."
+            )
         self._generator = generator
         self._threads = []
         self._stop_event = None
@@ -58,8 +59,7 @@ class GeneratorEnqueuer(data.BatchGenerator):
             self._stop_event = threading.Event()
 
             for _ in range(workers):
-                self._threads.append(
-                    threading.Thread(target=data_generator_task))
+                self._threads.append(threading.Thread(target=data_generator_task))
                 self._threads[-1].start()
         except:
             self.stop()
@@ -87,8 +87,7 @@ class GeneratorEnqueuer(data.BatchGenerator):
 
     def __next__(self):
         if not self.is_running():
-            raise ValueError(
-                "Generator must be running before iterating over it")
+            raise ValueError("Generator must be running before iterating over it")
         while True:
             if not self.queue.empty():
                 return self.queue.get()
@@ -120,7 +119,6 @@ class TrainingLogs(dict):
 
 
 class LossManager(object):
-
     @utils.resettable
     def __init__(self):
         self.__loss_names = []
@@ -139,12 +137,15 @@ class LossManager(object):
 
     def _compute_single_loss(self, model, targets, name):
         # Cache the score for logging
-        self.__loss_scores[name] = self.__loss_weight_dict[name] * \
-            self.__loss_dict[name](
-                *[getattr(model, loss_input) for loss_input
-                  in self.__loss_input_dict[name]],
-                targets
-            )
+        self.__loss_scores[name] = self.__loss_weight_dict[name] * self.__loss_dict[
+            name
+        ](
+            *[
+                getattr(model, loss_input)
+                for loss_input in self.__loss_input_dict[name]
+            ],
+            targets
+        )
         return self.__loss_scores[name]
 
     def verify_args(self, model):
@@ -154,7 +155,9 @@ class LossManager(object):
                     raise AttributeError(
                         "Model does not have attribute {loss_input}, which"
                         " is an input for the loss {loss_name}".format(
-                            loss_input=loss_input, loss_name=loss_name))
+                            loss_input=loss_input, loss_name=loss_name
+                        )
+                    )
 
     def loss(self, model, targets):
         # This means we need to verify that the input arguments for the loss
@@ -164,13 +167,16 @@ class LossManager(object):
             self.__verify_loss_args = False
 
         # Compute the loss
-        return sum(self._compute_single_loss(model, targets, loss_name) for
-                   loss_name in self.__loss_names)
+        return sum(
+            self._compute_single_loss(model, targets, loss_name)
+            for loss_name in self.__loss_names
+        )
 
     def get_loss_score(self, name=None):
         if name is None:
-            assert not len(self.__loss_names), "Need to specify a loss if " \
-                "using multiple losses."
+            assert not len(self.__loss_names), (
+                "Need to specify a loss if " "using multiple losses."
+            )
             name = self.__loss_names[0]
         return self.__loss_scores[name]
 
@@ -190,17 +196,13 @@ class LossManager(object):
         loss_fn = self.__loss_dict.pop(name)
         inputs = self.__loss_input_dict.pop(name)
         weight = self.__loss_weight_dict.pop(name)
-        return {"name": name,
-                "loss": loss_fn,
-                "inputs": inputs,
-                "weight": weight}
+        return {"name": name, "loss": loss_fn, "inputs": inputs, "weight": weight}
 
     def clear_losses(self):
         self.reset()
 
 
 class OptimizerManager(object):
-
     @utils.resettable
     def __init__(self):
         self.__optimizer_names = []
@@ -229,8 +231,7 @@ class OptimizerManager(object):
         else:
             self.__optimizer_names.remove(name)
         optimizer = self.__optimizer_dict.pop(name)
-        return {"name": name,
-                "optimizer": optimizer}
+        return {"name": name, "optimizer": optimizer}
 
     def clear_optimizers(self):
         self.reset()

@@ -80,7 +80,7 @@ class ContextAttention(layer.Layer):
             self.context_vector.reset_parameters()
 
     def __str__(self):
-        return "%r" % self.pool
+        return "%r" % self.context_attention
 
 
 class ContextMaxPool1D(layer.Layer):
@@ -148,4 +148,4 @@ class ContextMaxPool1D(layer.Layer):
                 self.context_attention[i].reset_parameters()
 
     def __str__(self):
-        return "%r" % self.pool
+        return "%r" % self.context_attention

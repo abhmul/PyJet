@@ -41,7 +41,7 @@ logging.info(
 
 # Set up the use of cuda if available
 use_cuda = torch.cuda.device_count() > 0
-device = torch.cuda.current_device()
+device = torch.cuda.current_device() if use_cuda else torch.current_device()
 
 
 def flatten(x):
