@@ -183,10 +183,33 @@ class LossManager(object):
     def add_loss(self, loss_fn, inputs, weight=1.0, name=None):
         if name is None:
             name = "loss_{}".format(len(self.__loss_dict))
+        assert name not in self.__loss_dict, f"You already added loss {name}"
+
         self.__loss_dict[name] = loss_fn
         self.__loss_input_dict[name] = inputs
         self.__loss_weight_dict[name] = weight
         self.__loss_names.append(name)
+
+        return name
+
+    def add_loss_with_aux(
+        self, stateful_loss_fn, inputs, auxilaries, weight=1.0, name=None
+    ):
+        """Loss function must store auxiliary values in stateful_loss_fn.
+        It then returns the combined value (however it wants to combine them)
+        """
+        # Add the complete loss function
+        name = self.add_loss(stateful_loss_fn, inputs, weight=weight, name=name)
+
+        # Get the outputs and reference their values from
+        for aux in auxilaries:
+            def get_aux_loss(aux):
+                val = getattr(stateful_loss_fn, aux)
+                assert val is not None
+                setattr(stateful_loss_fn, aux) = None
+                return val
+        
+            self.add_loss(get_aux_loss, inputs, weight=weight, name=aux)
 
     def remove_loss(self, name=None):
         if name is None:
