@@ -47,6 +47,19 @@ def destandardize_list_input(inputs):
     return inputs[0]
 
 
+def standardize_dict_input(inputs, default):
+    if type(inputs) is dict:
+        return inputs
+    return {default: inputs}
+
+def destandardize_dict_input(inputs):
+    if type(inputs) not dict:
+        return inputs
+    inputs = dict(inputs)
+    assert len(inputs == 1)
+    return inputs.pop(next(inputs.keys()))
+
+
 def deprecated(func):
     """This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emmitted

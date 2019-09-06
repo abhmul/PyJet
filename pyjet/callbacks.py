@@ -3,6 +3,8 @@ from collections import deque
 import numpy as np
 import warnings
 from tqdm import tqdm
+import utils
+
 try:
     import matplotlib
     import matplotlib.pyplot as plt
@@ -44,7 +46,7 @@ class CallbackList(object):
         logs = {} if logs is None else logs
         for callback in self.callbacks:
             callback.on_epoch_begin(epoch, logs=logs)
-        self._delta_t_batch = 0.
+        self._delta_t_batch = 0.0
         self._delta_ts_batch_begin = deque([], maxlen=self.queue_length)
         self._delta_ts_batch_end = deque([], maxlen=self.queue_length)
 
@@ -58,7 +60,7 @@ class CallbackList(object):
         for callback in self.callbacks:
             callback.on_epoch_end(epoch, logs=logs)
 
-    def on_batch_begin(self, step, epoch, logs=None):
+    def on_batch_begin(self, total_steps, steps_per_epoch, logs=None):
         """Called right before processing a batch.
         # Arguments
             batch: integer, index of batch within the current epoch.
@@ -70,22 +72,25 @@ class CallbackList(object):
             callback.on_batch_begin(step, epoch, logs=logs)
         self._delta_ts_batch_begin.append(time.time() - t_before_callbacks)
         delta_t_median = np.median(self._delta_ts_batch_begin)
-        if (self._delta_t_batch > 0.
-                and delta_t_median > 0.95 * self._delta_t_batch
-                and delta_t_median > 0.1):
-            warnings.warn('Method on_batch_begin() is slow compared '
-                          'to the batch update (%f). Check your callbacks.' %
-                          delta_t_median)
+        if (
+            self._delta_t_batch > 0.0
+            and delta_t_median > 0.95 * self._delta_t_batch
+            and delta_t_median > 0.1
+        ):
+            warnings.warn(
+                "Method on_batch_begin() is slow compared "
+                "to the batch update (%f). Check your callbacks." % delta_t_median
+            )
         self._t_enter_batch = time.time()
 
-    def on_batch_end(self, step, epoch, logs=None):
+    def on_batch_end(self, total_steps, steps_per_epoch, logs=None):
         """Called at the end of a batch.
         # Arguments
             batch: integer, index of batch within the current epoch.
             logs: dictionary of logs.
         """
         logs = {} if logs is None else logs
-        if not hasattr(self, '_t_enter_batch'):
+        if not hasattr(self, "_t_enter_batch"):
             self._t_enter_batch = time.time()
         self._delta_t_batch = time.time() - self._t_enter_batch
         t_before_callbacks = time.time()
@@ -93,12 +98,13 @@ class CallbackList(object):
             callback.on_batch_end(step, epoch, logs=logs)
         self._delta_ts_batch_end.append(time.time() - t_before_callbacks)
         delta_t_median = np.median(self._delta_ts_batch_end)
-        if (self._delta_t_batch > 0.
-                and (delta_t_median > 0.95 * self._delta_t_batch
-                     and delta_t_median > 0.1)):
-            warnings.warn('Method on_batch_end() is slow compared '
-                          'to the batch update (%f). Check your callbacks.' %
-                          delta_t_median)
+        if self._delta_t_batch > 0.0 and (
+            delta_t_median > 0.95 * self._delta_t_batch and delta_t_median > 0.1
+        ):
+            warnings.warn(
+                "Method on_batch_end() is slow compared "
+                "to the batch update (%f). Check your callbacks." % delta_t_median
+            )
 
     def on_train_begin(self, logs=None):
         """Called at the beginning of training.
@@ -160,10 +166,11 @@ class Callback(object):
     def on_epoch_end(self, epoch, logs=None):
         pass
 
-    def on_batch_begin(self, step, epoch, logs=None):
+    def on_batch_begin(self, total_steps, steps_per_epoch, logs=None):
+        # Step is the step within the given epoch
         pass
 
-    def on_batch_end(self, step, epoch, logs=None):
+    def on_batch_end(self, total_steps, steps_per_epoch, logs=None):
         pass
 
     def on_train_begin(self, logs=None):
@@ -174,7 +181,6 @@ class Callback(object):
 
 
 class ProgressBar(Callback):
-
     def __init__(self, steps, epochs=0):
         super(ProgressBar, self).__init__()
         self.steps = steps
@@ -184,18 +190,17 @@ class ProgressBar(Callback):
 
     def on_epoch_begin(self, epoch, logs=None):
         if self.epochs:
-            print("Epoch {curr}/{total}".format(curr=epoch + 1,
-                                                total=self.epochs))
+            print("Epoch {curr}/{total}".format(curr=epoch + 1, total=self.epochs))
         # Create a new progress bar for the epoch
         self.progbar = tqdm(total=self.steps)
         self.last_step = 0
         # Store the logs for updating the postfix
         self.epoch_logs = logs
 
-    def on_batch_end(self, step, epoch, logs=None):
+    def on_batch_end(self, total_steps, steps_per_epoch, logs=None):
         self.progbar.set_postfix(self.epoch_logs)
-        self.progbar.update(step - self.last_step)
-        self.last_step = step
+        self.progbar.update(total_steps - self.last_step)
+        self.last_step = total_steps
 
     def on_epoch_end(self, epoch, logs=None):
         self.epoch_logs = logs
@@ -235,9 +240,9 @@ class ModelCheckpoint(Callback):
         period: Interval (number of epochs) between checkpoints.
     """
 
-    def __init__(self, filepath, monitor, verbose=0,
-                 save_best_only=False,
-                 mode='auto', period=1):
+    def __init__(
+        self, filepath, monitor, verbose=0, save_best_only=False, mode="auto", period=1
+    ):
         super(ModelCheckpoint, self).__init__()
         self.monitor = monitor
         self.verbose = verbose
@@ -246,20 +251,27 @@ class ModelCheckpoint(Callback):
         self.period = period
         self.epochs_since_last_save = 0
 
-        if mode not in ['auto', 'min', 'max']:
-            warnings.warn('ModelCheckpoint mode %s is unknown, '
-                          'fallback to auto mode.' % (mode),
-                          RuntimeWarning)
-            mode = 'auto'
+        if mode not in ["auto", "min", "max"]:
+            warnings.warn(
+                "ModelCheckpoint mode %s is unknown, "
+                "fallback to auto mode." % (mode),
+                RuntimeWarning,
+            )
+            mode = "auto"
 
-        if mode == 'min':
+        if mode == "min":
             self.monitor_op = np.less
             self.best = np.Inf
-        elif mode == 'max':
+        elif mode == "max":
             self.monitor_op = np.greater
             self.best = -np.Inf
         else:
-            if 'acc' in self.monitor or 'auc' in self.monitor or 'iou' in self.monitor or self.monitor.startswith('fmeasure'):
+            if (
+                "acc" in self.monitor
+                or "auc" in self.monitor
+                or "iou" in self.monitor
+                or self.monitor.startswith("fmeasure")
+            ):
                 self.monitor_op = np.greater
                 self.best = -np.Inf
             else:
@@ -275,30 +287,41 @@ class ModelCheckpoint(Callback):
             if self.save_best_only:
                 current = logs[self.monitor]
                 if current is None:
-                    warnings.warn('Can save best model only with %s available, '
-                                  'skipping.' % self.monitor, RuntimeWarning)
+                    warnings.warn(
+                        "Can save best model only with %s available, "
+                        "skipping." % self.monitor,
+                        RuntimeWarning,
+                    )
                 else:
                     if self.monitor_op(current, self.best):
                         if self.verbose > 0:
-                            print('Epoch %05d: %s improved from %0.5f to %0.5f,'
-                                  ' saving model to %s'
-                                  % (epoch, self.monitor, self.best,
-                                     current, filepath))
+                            print(
+                                "Epoch %05d: %s improved from %0.5f to %0.5f,"
+                                " saving model to %s"
+                                % (epoch, self.monitor, self.best, current, filepath)
+                            )
                         self.best = current
                         self.model.save_state(filepath)
                     else:
                         if self.verbose > 0:
-                            print('Epoch %05d: %s did not improve' %
-                                  (epoch, self.monitor))
+                            print(
+                                "Epoch %05d: %s did not improve" % (epoch, self.monitor)
+                            )
             else:
                 if self.verbose > 0:
-                    print('Epoch %05d: saving model to %s' % (epoch, filepath))
+                    print("Epoch %05d: saving model to %s" % (epoch, filepath))
                 self.model.save_state(filepath)
 
 
 class Plotter(Callback):
-
-    def __init__(self, monitor, scale='linear', plot_during_train=True, save_to_file=None, block_on_end=True):
+    def __init__(
+        self,
+        monitor,
+        scale="linear",
+        plot_during_train=True,
+        save_to_file=None,
+        block_on_end=True,
+    ):
         super().__init__()
         if plt is None:
             raise ValueError("Must be able to import Matplotlib to use the Plotter.")
@@ -315,8 +338,9 @@ class Plotter(Callback):
         self.title = "{} per Epoch".format(self.monitor)
         self.xlabel = "Epoch"
         self.ylabel = self.monitor
-        self.ax = self.fig.add_subplot(111, title=self.title,
-                                       xlabel=self.xlabel, ylabel=self.ylabel)
+        self.ax = self.fig.add_subplot(
+            111, title=self.title, xlabel=self.xlabel, ylabel=self.ylabel
+        )
         self.ax.set_yscale(self.scale)
         self.x = []
         self.y_train = []
@@ -340,15 +364,15 @@ class Plotter(Callback):
 
         self.ax.set_yscale(self.scale)
         # Actually plot
-        self.ax.plot(self.x, self.y_train, 'b-', self.x, self.y_val, 'g-')
+        self.ax.plot(self.x, self.y_train, "b-", self.x, self.y_val, "g-")
         self.fig.canvas.draw()
         # plt.pause(0.5)
         if self.save_to_file is not None:
             self.fig.savefig(self.save_to_file)
         return
 
-class MetricLogger(Callback):
 
+class MetricLogger(Callback):
     def __init__(self, log_fname):
         super().__init__()
         self.log_fname = log_fname
@@ -357,7 +381,7 @@ class MetricLogger(Callback):
         train_logs = train_logs or {}
         val_logs = val_logs or {}
         # Write the info to the log
-        with open(self.log_fname, 'a') as log_file:
+        with open(self.log_fname, "a") as log_file:
             print("Epoch: %s" % epoch, file=log_file)
             if len(train_logs) > 0:
                 print("Train", file=log_file)
@@ -405,102 +429,28 @@ class ReduceLROnPlateau(Callback):
         min_lr: lower bound on the learning rate.
     """
 
-    def __init__(self, optimizer, monitor, monitor_val=True, factor=0.1, patience=10,
-                 verbose=0, mode='auto', epsilon=1e-4, cooldown=0, min_lr=0):
+    def __init__(
+        self,
+        optimizer,
+        monitor,
+        monitor_val=True,
+        factor=0.1,
+        patience=10,
+        verbose=0,
+        mode="auto",
+        epsilon=1e-4,
+        cooldown=0,
+        min_lr=0,
+    ):
         super(ReduceLROnPlateau, self).__init__()
 
         self.optimizer = optimizer
         self.monitor = monitor
         self.monitor_val = monitor_val
         if factor >= 1.0:
-            raise ValueError('ReduceLROnPlateau '
-                             'does not support a factor >= 1.0.')
+            raise ValueError("ReduceLROnPlateau " "does not support a factor >= 1.0.")
         self.factor = factor
         self.min_lr = min_lr
         self.epsilon = epsilon
         self.patience = patience
-        self.verbose = verbose
-        self.cooldown = cooldown
-        self.cooldown_counter = 0  # Cooldown counter.
-        self.wait = 0
-        self.best = 0
-        self.mode = mode
-        self.monitor_op = None
-        self._reset()
-
-    def _reset(self):
-        """Resets wait counter and cooldown counter.
-        """
-        if self.mode not in ['auto', 'min', 'max']:
-            warnings.warn('Learning Rate Plateau Reducing mode %s is unknown, '
-                          'fallback to auto mode.' % (self.mode),
-                          RuntimeWarning)
-            self.mode = 'auto'
-        if (self.mode == 'min' or
-           (self.mode == 'auto' and 'acc' not in self.monitor)):
-            self.monitor_op = lambda a, b: np.less(a, b - self.epsilon)
-            self.best = np.Inf
-        else:
-            self.monitor_op = lambda a, b: np.greater(a, b + self.epsilon)
-            self.best = -np.Inf
-        self.cooldown_counter = 0
-        self.wait = 0
-
-    def on_train_begin(self, logs=None, **kwargs):
-        self._reset()
-
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        logs = val_logs if self.monitor_val else train_logs
-        logs = logs or {}
-
-        current = logs.get(self.monitor)[-1]
-        if current is None:
-            warnings.warn(
-                'Reduce LR on plateau conditioned on metric `%s` '
-                'which is not available. Available metrics are: %s' %
-                (self.monitor, ','.join(list(logs.keys()))), RuntimeWarning
-            )
-
-        else:
-            if self.in_cooldown():
-                self.cooldown_counter -= 1
-                self.wait = 0
-
-            if self.monitor_op(current, self.best):
-                self.best = current
-                self.wait = 0
-            elif not self.in_cooldown():
-                if self.wait >= self.patience:
-                    reduced_lr = False
-                    for param_group in self.optimizer.param_groups:
-                        old_lr = param_group['lr']
-                        if old_lr > self.min_lr:
-                            param_group['lr'] = max(old_lr * self.factor, self.min_lr)
-                            reduced_lr = True
-                    if reduced_lr:
-                        self.cooldown_counter = self.cooldown
-                        self.wait = 0
-                        if self.verbose > 0:
-                            print('\nEpoch %05d: ReduceLROnPlateau reducing learning rate by %s factor.' % (
-                                  epoch + 1, self.factor))
-
-                self.wait += 1
-
-    def in_cooldown(self):
-        return self.cooldown_counter > 0
-
-
-class LRScheduler(Callback):
-
-    def __init__(self, optimizer, schedule, verbose=0):
-        super().__init__()
-        self.optimizer = optimizer
-        self.schedule = schedule
-        self.verbose = verbose
-
-    def on_epoch_begin(self, epoch, train_logs=None, val_logs=None):
-        new_lr = self.schedule(epoch)
-        for param_group in self.optimizer.param_groups:
-            param_group['lr'] = new_lr
-        if self.verbose > 0:
-            print('\nEpoch %05d: LRScheduler setting lr to %s.' % (epoch + 1, new_lr))
+        sel

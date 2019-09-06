@@ -301,7 +301,10 @@ class SLModel(Layer):
             # Run each step of the epoch with a progress bar
             for step in range(steps_per_epoch):
                 # Run the callbacks
-                callbacks.on_batch_begin(epoch=epoch, step=step, logs=logs.batch_logs)
+                total_steps = step + epoch * steps_per_epoch
+                callbacks.on_batch_begin(
+                    total_steps, steps_per_epoch, logs=logs.batch_logs
+                )
                 x, target = next(generator)
                 b_loss, b_metrics = self.train_on_batch(
                     x, target, optimizers, loss_fn, metrics
@@ -311,7 +314,7 @@ class SLModel(Layer):
                 for score, metric in zip(b_metrics, metrics):
                     logs.log_metric(metric, score)
                 # Run the callbacks
-                callbacks.on_batch_end(epoch=epoch, step=step, logs=logs.batch_logs)
+                callbacks.on_batch_end(total_steps, steps_per_epoch,, logs=logs.batch_logs)
 
             # Check if we need to run validation
             if run_validation:
