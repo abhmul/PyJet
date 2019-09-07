@@ -1,5 +1,6 @@
 import logging
 import threading
+from functools import partial
 import numpy as np
 
 # For image dataset
@@ -501,6 +502,7 @@ class ImageDataset(NpDataset):
         "ycbcr": rgb2ycbcr,
         "gray": lambda x: rgb2gray(x)[:, :, np.newaxis],
     }
+    GRAYMODE2FUNC = {"rgb": gray2rgb, "gray": lambda x: x}
 
     def __init__(self, x, y=None, ids=None, img_size=None, mode="rgb", to_float=True):
         super(ImageDataset, self).__init__(x, y=y, ids=ids)
@@ -517,9 +519,10 @@ class ImageDataset(NpDataset):
         img = imread(path_to_img)
         # Then its a grayscale image
         if img.ndim == 2:
-            img = img[:, :, np.newaxis]
+            img = ImageDataset.GRAYMODE2FUNC[mode](img)
         elif np.all(img[:, :, 0:1] == img):
-            img = img[:, :, 0:1]
+            img = img[:, :, 0]
+            img = ImageDataset.GRAYMODE2FUNC[mode](img)
         # Otherwise it's rgb
         else:
             # Cut out the alpha channel
@@ -543,7 +546,6 @@ class ImageDataset(NpDataset):
         else:
             # Use uint8 to keep mem low
             img = img.astype(np.uint8, copy=False)
-
         return img, orig_img_shape
 
     @staticmethod
@@ -614,6 +616,33 @@ class ImageDataset(NpDataset):
         if self.output_labels:
             return x, self.y[batch_indicies]
         return x
+
+    def validation_split(
+        self, split=0.2, shuffle=False, seed=None, stratified=False, stratify_by=None
+    ):
+        train_split, val_split = self.get_split_indicies(
+            split, shuffle, seed, stratified, stratify_by
+        )
+        train_data = self.__class__(
+            self.x[train_split],
+            y=None if not self.has_labels else self.y[train_split],
+            ids=None if not self.has_ids else self.ids[train_split],
+            img_size=self.img_size,
+            mode=self.mode,
+            to_float=self.to_float,
+        )
+        val_data = self.__class__(
+            self.x[val_split],
+            y=None if not self.has_labels else self.y[val_split],
+            ids=None if not self.has_ids else self.ids[val_split],
+            img_size=self.img_size,
+            mode=self.mode,
+            to_float=self.to_float,
+        )
+        return train_data, val_data
+
+    def kfold(self, k=5, shuffle=False, seed=None):
+        raise NotImplementedError()
 
 
 class ImageMaskDataset(ImageDataset):

@@ -52,8 +52,9 @@ def standardize_dict_input(inputs, default):
         return inputs
     return {default: inputs}
 
+
 def destandardize_dict_input(inputs):
-    if type(inputs) not dict:
+    if type(inputs) is not dict:
         return inputs
     inputs = dict(inputs)
     assert len(inputs == 1)

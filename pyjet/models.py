@@ -314,7 +314,9 @@ class SLModel(Layer):
                 for score, metric in zip(b_metrics, metrics):
                     logs.log_metric(metric, score)
                 # Run the callbacks
-                callbacks.on_batch_end(total_steps, steps_per_epoch,, logs=logs.batch_logs)
+                callbacks.on_batch_end(
+                    total_steps, steps_per_epoch, logs=logs.batch_logs
+                )
 
             # Check if we need to run validation
             if run_validation:

@@ -3,7 +3,8 @@ from collections import deque
 import numpy as np
 import warnings
 from tqdm import tqdm
-import utils
+
+from . import utils
 
 try:
     import matplotlib
@@ -453,4 +454,169 @@ class ReduceLROnPlateau(Callback):
         self.min_lr = min_lr
         self.epsilon = epsilon
         self.patience = patience
-        sel
+        self.verbose = verbose
+
+        self.cooldown = cooldown
+        self.cooldown_counter = 0  # Cooldown counter.
+        self.wait = 0
+        self.best = 0
+        self.mode = mode
+        self.monitor_op = None
+        self._reset()
+
+    def _reset(self):
+        """Resets wait counter and cooldown counter.
+        """
+        if self.mode not in ["auto", "min", "max"]:
+            warnings.warn(
+                "Learning Rate Plateau Reducing mode %s is unknown, "
+                "fallback to auto mode." % (self.mode),
+                RuntimeWarning,
+            )
+            self.mode = "auto"
+        if self.mode == "min" or (self.mode == "auto" and "acc" not in self.monitor):
+            self.monitor_op = lambda a, b: np.less(a, b - self.epsilon)
+            self.best = np.Inf
+        else:
+            self.monitor_op = lambda a, b: np.greater(a, b + self.epsilon)
+            self.best = -np.Inf
+        self.cooldown_counter = 0
+        self.wait = 0
+
+    def on_train_begin(self, logs=None, **kwargs):
+        self._reset()
+
+    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
+        logs = val_logs if self.monitor_val else train_logs
+        logs = logs or {}
+
+        current = logs.get(self.monitor)[-1]
+        if current is None:
+            warnings.warn(
+                "Reduce LR on plateau conditioned on metric `%s` "
+                "which is not available. Available metrics are: %s"
+                % (self.monitor, ",".join(list(logs.keys()))),
+                RuntimeWarning,
+            )
+
+        else:
+            if self.in_cooldown():
+                self.cooldown_counter -= 1
+                self.wait = 0
+
+            if self.monitor_op(current, self.best):
+                self.best = current
+                self.wait = 0
+            elif not self.in_cooldown():
+                if self.wait >= self.patience:
+                    reduced_lr = False
+                    for param_group in self.optimizer.param_groups:
+                        old_lr = param_group["lr"]
+                        if old_lr > self.min_lr:
+                            param_group["lr"] = max(old_lr * self.factor, self.min_lr)
+                            reduced_lr = True
+                    if reduced_lr:
+                        self.cooldown_counter = self.cooldown
+                        self.wait = 0
+                        if self.verbose > 0:
+                            print(
+                                "\nEpoch %05d: ReduceLROnPlateau reducing learning rate by %s factor."
+                                % (epoch + 1, self.factor)
+                            )
+
+                self.wait += 1
+
+    def in_cooldown(self):
+        return self.cooldown_counter > 0
+
+
+# TODO: Change the name to something that implies its real role more. This can change any learning parameter, not just LR.
+# Todo: Consider making special optimizer class that we can pass a schedule?
+class LRScheduler(Callback):
+    def __init__(
+        self,
+        optimizer,
+        schedule=lambda epoch: {},
+        batch_schedule=lambda total_steps, steps_per_epoch: {},
+        verbose=0,
+    ):
+        """A callback to execute a schedule for the parameters
+        of an optimizer.
+        
+        Arguments:
+            optimizer -- The pytorch optimizer to schedule
+            schedule -- A function that takes as input the number of completed epochs
+            batch_schedule -- A function that takes as input the number of completed training steps within an epoch and the number of completed epochs
+        
+        Keyword Arguments:
+            verbose  -- (default: {0})
+        """
+        super().__init__()
+        self.optimizer = optimizer
+        self.schedule = schedule
+        self.batch_schedule = batch_schedule
+        self.verbose = verbose
+
+    def on_epoch_begin(self, epoch, train_logs=None, val_logs=None):
+        new_param_dict = utils.standardize_dict_input(
+            self.schedule(epoch), default="lr"
+        )
+
+        for param_name in new_param_dict:
+            # Ignore params that aren't in the param group
+            for param_group in self.optimizer.param_groups:
+                if param_name not in param_group:
+                    logging.warn(f"{param_name} not found in param group {param_group}")
+                    continue
+                param_group[param_name] = new_param_dict[param_name]
+        if self.verbose > 0:
+            print(
+                f"\nEpoch {epoch+1}: LRScheduler setting {', '.join(f'{name}->{val}' for name, val in new_param_dict.values())}"
+            )
+
+    def on_batch_begin(self, total_steps, steps_per_epoch, logs=None):
+        new_param_dict = utils.standardize_dict_input(
+            self.batch_schedule(total_steps, steps_per_epoch), default="lr"
+        )
+
+        for param_name in new_param_dict:
+            # Ignore params that aren't in the param group
+            for param_group in self.optimizer.param_groups:
+                if param_name not in param_group:
+                    logging.warn(f"{param_name} not found in param group {param_group}")
+                    continue
+                param_group[param_name] = new_param_dict[param_name]
+        if self.verbose > 1:
+            print(
+                f"\{total_steps}: LRScheduler setting {', '.join(f'{name}->{val}' for name, val in new_param_dict.values())}"
+            )
+
+
+class OneCycleScheduler(LRScheduler):
+    def __init__(self, optimizer, lr_range, momentum_range, period, verbose=0):
+        self.period = period
+        self.lr_range = lr_range
+        self.momentum_range = momentum_range
+
+        self.lr_start = lr_range[0]
+        self.lr_amplitude = lr_range[1] - lr_range[0]
+        self.momentum_start = momentum_range[0]
+        self.momentum_amplitude = momentum_range[1] - momentum_range[0]
+
+        super().__init__(optimizer, batch_schedule=self.batch_schedule)
+
+    def get_step(self, total_steps, start_val, amplitude):
+        num_steps_in_phase = total_steps % self.period
+        change = 2 * num_steps_in_phase / self.period * amplitude
+        if self.period / 2 >= total_steps % self.period:
+            return change + start_val
+        if self.period / 2 < total_steps % self.period:
+            return start_val + amplitude - change
+
+    def batch_schedule(self, total_steps, steps_per_epoch):
+        lr = self.get_step(total_steps, self.lr_start, self.lr_amplitude)
+        momentum = self.get_step(
+            total_steps, self.momentum_start, self.momentum_amplitude
+        )
+        return {"lr": lr, "momentum": momentum}
+
