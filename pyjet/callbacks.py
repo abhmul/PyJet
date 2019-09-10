@@ -603,7 +603,14 @@ class OneCycleScheduler(LRScheduler):
         self.momentum_start = momentum_range[0]
         self.momentum_amplitude = momentum_range[1] - momentum_range[0]
 
-        super().__init__(optimizer, batch_schedule=self.batch_schedule)
+        def batch_schedule(total_steps, steps_per_epoch):
+            lr = self.get_step(total_steps, self.lr_start, self.lr_amplitude)
+            momentum = self.get_step(
+                total_steps, self.momentum_start, self.momentum_amplitude
+            )
+            return {"lr": lr, "momentum": momentum}
+
+        super().__init__(optimizer, batch_schedule=batch_schedule)
 
     def get_step(self, total_steps, start_val, amplitude):
         num_steps_in_phase = total_steps % self.period
@@ -612,11 +619,4 @@ class OneCycleScheduler(LRScheduler):
             return change + start_val
         if self.period / 2 < total_steps % self.period:
             return start_val + amplitude - change
-
-    def batch_schedule(self, total_steps, steps_per_epoch):
-        lr = self.get_step(total_steps, self.lr_start, self.lr_amplitude)
-        momentum = self.get_step(
-            total_steps, self.momentum_start, self.momentum_amplitude
-        )
-        return {"lr": lr, "momentum": momentum}
 

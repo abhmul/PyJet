@@ -103,6 +103,17 @@ class SLModel(Layer):
             inputs = ["loss_in"]
         return self.loss_manager.add_loss(loss_fn, inputs, weight=weight, name=name)
 
+    def add_loss_with_aux(
+        self, stateful_loss_fn, inputs=(), auxilaries=(), weight=1.0, name=None
+    ):
+        inputs = standardize_list_input(inputs)
+        # Use 'loss_in' if no inputs provided
+        if not len(inputs):
+            inputs = ["loss_in"]
+        return self.loss_manager.add_loss_with_aux(
+            stateful_loss_fn, inputs, auxilaries, weight=weight, name=name
+        )
+
     def remove_loss(self, name=None):
         return self.loss_manager.remove_loss(name=name)
 
