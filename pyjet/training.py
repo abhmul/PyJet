@@ -97,25 +97,59 @@ class GeneratorEnqueuer(data.BatchGenerator):
 
 
 class TrainingLogs(dict):
-    def __init__(self):
+    def __init__(self, initial_epoch=0):
+        """Container for storing relevant training
+        information. Acts like a dictionary where
+        each metric name is mapped to the list
+        of its score for each epoch.
+        
+        Keyword Arguments:
+            initial_epoch {int} -- The initial epoch of training (default: {0})
+        """
         super().__init__()
+        # Stores accumulated metrics over the current epoch
         self.epoch_logs = {}
+        # Stores metrics for current batch
         self.batch_logs = {}
 
+        self.epochs = initial_epoch  # Completed epochs
+        self.steps = 0  # Overall completed training step
+        self.epoch_steps = 0  # Step in current epoch
+
     def on_epoch_begin(self):
+        """Resets the metric logs for the epoch"""
         self.epoch_logs = {}
         self.batch_logs = {}
+        self.epoch_steps = 0
 
     def log_metric(self, metric, score):
         self.batch_logs[metric.__name__] = score.item()
         self.epoch_logs[metric.__name__] = metric.accumulate()
 
+    def log_metrics(self, metrics, scores, steps=1):
+        """Log a metrics and their corresponding scores. 
+        """
+        assert len(metrics) == len(scores)
+        for metric, score in zip(metrics, scores):
+            self.log_metric(metric, score)
+
+    def step(self, steps=1):
+        """Update the number of steps that have passed."""
+        self.steps += steps
+        self.epoch_steps += steps
+
     def on_epoch_end(self):
         for metric_name, score in self.epoch_logs.items():
+            # Create the metric score list if its not there.
             self.setdefault(metric_name, []).append(score)
+        self.epochs += 1
 
     def log_validation_metric(self, metric):
         self.epoch_logs["val_" + metric.__name__] = metric.accumulate()
+
+    def log_validation_metrics(self, metrics):
+        for metric in metrics:
+            self.log_validation_metric(metric)
 
 
 class LossManager(object):
@@ -204,13 +238,17 @@ class LossManager(object):
         # Get the outputs and reference their values from
         for aux in auxilaries:
 
-            def get_aux_loss(aux):
-                val = getattr(stateful_loss_fn, aux)
-                assert val is not None
-                setattr(stateful_loss_fn, aux, None)
-                return val
+            def bind_function(aux):
+                def func(*args):
+                    val = getattr(stateful_loss_fn, aux)
+                    assert val is not None, f"Value for auxilary loss {aux} is None"
+                    setattr(stateful_loss_fn, aux, None)
+                    return val
 
-            self.add_loss(get_aux_loss, inputs, weight=weight, name=aux)
+                func.__name__ = aux
+                return func
+
+            self.add_loss(bind_function(aux), inputs, weight=weight, name=aux)
 
     def remove_loss(self, name=None):
         if name is None:
@@ -248,6 +286,10 @@ class OptimizerManager(object):
             name = "optimizer_{}".format(len(self))
         self.__optimizer_dict[name] = optimizer
         self.__optimizer_names.append(name)
+
+    def get_optimizer(self, name):
+        assert name in self.__optimizer_dict
+        return self.__optimizer_dict[name]
 
     def remove_optimizer(self, name=None):
         if name is None:

@@ -14,8 +14,9 @@ from pyjet.models import SLModel
 from pyjet.data import NpDataset
 import pyjet.backend as J
 from pyjet.layers import Conv2D, MaxPooling2D, FullyConnected, Input
-from pyjet.callbacks import ModelCheckpoint, Plotter
-from pyjet.hooks import hook_outputs, model_sizes
+from pyjet.callbacks import ModelCheckpoint, Plotter, OneCycleScheduler
+from pyjet.hooks import model_sizes
+from pyjet.metrics import Metric
 
 import logging
 
@@ -53,13 +54,16 @@ ind = np.random.randint(xtr.shape[0])
 class MNISTModel(SLModel):
     def __init__(self):
         super(MNISTModel, self).__init__()
-        self.conv1 = Conv2D(20, kernel_size=5, activation="sigmoid")
-        self.conv2 = Conv2D(30, kernel_size=5, activation="sigmoid")
+
+        self.conv1 = Conv2D(
+            20, kernel_size=5, activation="relu", batchnorm=True, input_batchnorm=True
+        )
+        self.conv2 = Conv2D(30, kernel_size=5, activation="relu", batchnorm=True)
         self.mp = MaxPooling2D(2)
-        self.fc1 = FullyConnected(50, activation="linear")
+        self.fc1 = FullyConnected(50, activation="relu")
         self.fc2 = FullyConnected(10)
 
-        print(model_sizes(self, (1, 28, 28)))
+        print(model_sizes(self, Input(1, 28, 28)))
         self.infer_inputs(Input(1, 28, 28))
 
     def forward(self, x):
@@ -100,6 +104,48 @@ val_datagen = NpDataset(xval, y=yval).flow(batch_size=1000, shuffle=True, seed=1
 optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 model.add_optimizer(optimizer)
 
+# Add the LR scheduler
+one_cycle = OneCycleScheduler(
+    optimizer, (1e-4, 1e-2), (0.95, 0.85), train_datagen.steps_per_epoch * 5
+)
+
+
+class LR(Metric):
+    def __init__(self, onecycle):
+        super().__init__()
+        self.onecycle = onecycle
+
+    def __call__(self, y_pred, y_true):
+        return self.score(y_pred, y_true)
+
+    def score(self, y_pred, y_true):
+        return J.tensor(self.onecycle.lr)
+
+    def accumulate(self):
+        return self.onecycle.lr
+
+    def reset(self):
+        return self
+
+
+class Momentum(Metric):
+    def __init__(self, onecycle):
+        super().__init__()
+        self.onecycle = onecycle
+
+    def __call__(self, y_pred, y_true):
+        return self.score(y_pred, y_true)
+
+    def score(self, y_pred, y_true):
+        return J.tensor(self.onecycle.momentum)
+
+    def accumulate(self):
+        return self.onecycle.momentum
+
+    def reset(self):
+        return self
+
+
 # Fit the model
 model.fit_generator(
     train_datagen,
@@ -107,8 +153,8 @@ model.fit_generator(
     steps_per_epoch=train_datagen.steps_per_epoch,
     validation_data=val_datagen,
     validation_steps=val_datagen.steps_per_epoch,
-    metrics=["accuracy", "top3_accuracy"],
-    callbacks=[best_model, plotter],
+    metrics=[LR(one_cycle), Momentum(one_cycle), "accuracy", "top3_accuracy"],
+    callbacks=[one_cycle, best_model, plotter],
 )
 
 # Load the best model

@@ -30,47 +30,46 @@ class CallbackList(object):
     def append(self, callback):
         self.callbacks.append(callback)
 
-    def set_params(self, params):
-        for callback in self.callbacks:
-            callback.set_params(params)
-
     def set_model(self, model):
         for callback in self.callbacks:
             callback.set_model(model)
 
-    def on_epoch_begin(self, epoch, logs=None):
+    def release_model(self):
+        for callback in self.callbacks:
+            callback.release_model()
+
+    def on_epoch_begin(self, logs):
         """Called at the start of an epoch.
         # Arguments
             epoch: integer, index of epoch.
             logs: dictionary of logs.
         """
-        logs = {} if logs is None else logs
         for callback in self.callbacks:
-            callback.on_epoch_begin(epoch, logs=logs)
+            callback.on_epoch_begin(logs)
         self._delta_t_batch = 0.0
         self._delta_ts_batch_begin = deque([], maxlen=self.queue_length)
         self._delta_ts_batch_end = deque([], maxlen=self.queue_length)
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, logs):
         """Called at the end of an epoch.
         # Arguments
             epoch: integer, index of epoch.
             logs: dictionary of logs.
         """
-        logs = {} if logs is None else logs
         for callback in self.callbacks:
-            callback.on_epoch_end(epoch, logs=logs)
+            callback.on_epoch_end(logs)
 
-    def on_batch_begin(self, total_steps, steps_per_epoch, logs=None):
+    def on_batch_begin(self, logs):
         """Called right before processing a batch.
         # Arguments
             batch: integer, index of batch within the current epoch.
             logs: dictionary of logs.
         """
-        logs = {} if logs is None else logs
         t_before_callbacks = time.time()
+
         for callback in self.callbacks:
-            callback.on_batch_begin(step, epoch, logs=logs)
+            callback.on_batch_begin(logs)
+
         self._delta_ts_batch_begin.append(time.time() - t_before_callbacks)
         delta_t_median = np.median(self._delta_ts_batch_begin)
         if (
@@ -84,19 +83,20 @@ class CallbackList(object):
             )
         self._t_enter_batch = time.time()
 
-    def on_batch_end(self, total_steps, steps_per_epoch, logs=None):
+    def on_batch_end(self, logs):
         """Called at the end of a batch.
         # Arguments
             batch: integer, index of batch within the current epoch.
             logs: dictionary of logs.
         """
-        logs = {} if logs is None else logs
         if not hasattr(self, "_t_enter_batch"):
             self._t_enter_batch = time.time()
         self._delta_t_batch = time.time() - self._t_enter_batch
+
         t_before_callbacks = time.time()
         for callback in self.callbacks:
-            callback.on_batch_end(step, epoch, logs=logs)
+            callback.on_batch_end(logs)
+
         self._delta_ts_batch_end.append(time.time() - t_before_callbacks)
         delta_t_median = np.median(self._delta_ts_batch_end)
         if self._delta_t_batch > 0.0 and (
@@ -107,23 +107,21 @@ class CallbackList(object):
                 "to the batch update (%f). Check your callbacks." % delta_t_median
             )
 
-    def on_train_begin(self, logs=None):
+    def on_train_begin(self, logs):
         """Called at the beginning of training.
         # Arguments
             logs: dictionary of logs.
         """
-        logs = {} if logs is None else logs
         for callback in self.callbacks:
-            callback.on_train_begin(logs=logs)
+            callback.on_train_begin(logs)
 
-    def on_train_end(self, logs=None):
+    def on_train_end(self, logs):
         """Called at the end of training.
         # Arguments
             logs: dictionary of logs.
         """
-        logs = {} if logs is None else logs
         for callback in self.callbacks:
-            callback.on_train_end(logs=logs)
+            callback.on_train_end(logs)
 
     def __iter__(self):
         return iter(self.callbacks)
@@ -155,57 +153,57 @@ class Callback(object):
     def __init__(self):
         self.validation_data = None
 
-    def set_params(self, params):
-        self.params = params
-
     def set_model(self, model):
         self.model = model
 
-    def on_epoch_begin(self, epoch, logs=None):
+    def release_model(self):
+        self.model = None
+
+    def on_epoch_begin(self, logs):
         pass
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, logs):
         pass
 
-    def on_batch_begin(self, total_steps, steps_per_epoch, logs=None):
-        # Step is the step within the given epoch
+    def on_batch_begin(self, logs):
         pass
 
-    def on_batch_end(self, total_steps, steps_per_epoch, logs=None):
+    def on_batch_end(self, logs):
         pass
 
-    def on_train_begin(self, logs=None):
+    def on_train_begin(self, logs):
         pass
 
-    def on_train_end(self, logs=None):
+    def on_train_end(self, logs):
         pass
 
 
 class ProgressBar(Callback):
-    def __init__(self, steps, epochs=0):
+    def __init__(self, steps_per_epoch, total_epochs=0):
         super(ProgressBar, self).__init__()
-        self.steps = steps
-        self.epochs = epochs
+        self.steps_per_epoch = steps_per_epoch
+        self.total_epochs = total_epochs
         self.last_step = 0
         self.progbar = None
 
-    def on_epoch_begin(self, epoch, logs=None):
-        if self.epochs:
-            print("Epoch {curr}/{total}".format(curr=epoch + 1, total=self.epochs))
+    def on_epoch_begin(self, logs):
+        epoch = logs.epochs
+        if self.total_epochs:
+            print(
+                "Epoch {curr}/{total}".format(curr=epoch + 1, total=self.total_epochs)
+            )
         # Create a new progress bar for the epoch
-        self.progbar = tqdm(total=self.steps)
+        self.progbar = tqdm(total=self.steps_per_epoch)
         self.last_step = 0
-        # Store the logs for updating the postfix
-        self.epoch_logs = logs
 
-    def on_batch_end(self, total_steps, steps_per_epoch, logs=None):
-        self.progbar.set_postfix(self.epoch_logs)
-        self.progbar.update(total_steps - self.last_step)
-        self.last_step = total_steps
+    def on_batch_end(self, logs):
+        current_steps = logs.epoch_steps
+        self.progbar.set_postfix(logs.epoch_logs)
+        self.progbar.update(current_steps - self.last_step)
+        self.last_step = current_steps
 
-    def on_epoch_end(self, epoch, logs=None):
-        self.epoch_logs = logs
-        self.progbar.set_postfix(logs)
+    def on_epoch_end(self, logs):
+        self.progbar.set_postfix(logs.epoch_logs)
         # 0 because we've already finished all steps
         self.progbar.update(0)
         self.progbar.close()
@@ -279,39 +277,43 @@ class ModelCheckpoint(Callback):
                 self.monitor_op = np.less
                 self.best = np.Inf
 
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
+    def on_epoch_end(self, logs):
+        epoch = logs.epochs
+        logs = logs.epoch_logs
+
         self.epochs_since_last_save += 1
-        if self.epochs_since_last_save >= self.period:
-            self.epochs_since_last_save = 0
-            filepath = self.filepath.format(epoch=epoch)
-            if self.save_best_only:
-                current = logs[self.monitor]
-                if current is None:
-                    warnings.warn(
-                        "Can save best model only with %s available, "
-                        "skipping." % self.monitor,
-                        RuntimeWarning,
-                    )
-                else:
-                    if self.monitor_op(current, self.best):
-                        if self.verbose > 0:
-                            print(
-                                "Epoch %05d: %s improved from %0.5f to %0.5f,"
-                                " saving model to %s"
-                                % (epoch, self.monitor, self.best, current, filepath)
-                            )
-                        self.best = current
-                        self.model.save_state(filepath)
-                    else:
-                        if self.verbose > 0:
-                            print(
-                                "Epoch %05d: %s did not improve" % (epoch, self.monitor)
-                            )
+        # Continue if we haven't reached the period
+        if self.epochs_since_last_save < self.period:
+            return
+
+        filepath = self.filepath.format(epoch=epoch)
+        if self.save_best_only:
+            current = logs[self.monitor]
+            if current is None:
+                warnings.warn(
+                    "Can save best model only with %s available, "
+                    "skipping." % self.monitor,
+                    RuntimeWarning,
+                )
             else:
-                if self.verbose > 0:
-                    print("Epoch %05d: saving model to %s" % (epoch, filepath))
-                self.model.save_state(filepath)
+                if self.monitor_op(current, self.best):
+                    if self.verbose > 0:
+                        print(
+                            "Epoch %05d: %s improved from %0.5f to %0.5f,"
+                            " saving model to %s"
+                            % (epoch, self.monitor, self.best, current, filepath)
+                        )
+                    self.best = current
+                    self.model.save_state(filepath)
+                    self.epochs_since_last_save = 0
+                else:
+                    if self.verbose > 0:
+                        print("Epoch %05d: %s did not improve" % (epoch, self.monitor))
+        else:
+            if self.verbose > 0:
+                print("Epoch %05d: saving model to %s" % (epoch, filepath))
+            self.model.save_state(filepath)
+            self.epochs_since_last_save = 0
 
 
 class Plotter(Callback):
@@ -347,15 +349,16 @@ class Plotter(Callback):
         self.y_train = []
         self.y_val = []
 
-    def on_train_end(self, logs=None):
+    def on_train_end(self, logs):
         if self.plot_during_train:
             plt.ioff()
         if self.block_on_end:
             plt.show()
         return
 
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
+    def on_epoch_end(self, logs):
+        logs = logs.epoch_logs
+
         self.x.append(len(self.x))
         self.y_train.append(logs[self.monitor])
         self.y_val.append(logs["val_" + self.monitor])
@@ -371,163 +374,6 @@ class Plotter(Callback):
         if self.save_to_file is not None:
             self.fig.savefig(self.save_to_file)
         return
-
-
-class MetricLogger(Callback):
-    def __init__(self, log_fname):
-        super().__init__()
-        self.log_fname = log_fname
-
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        train_logs = train_logs or {}
-        val_logs = val_logs or {}
-        # Write the info to the log
-        with open(self.log_fname, "a") as log_file:
-            print("Epoch: %s" % epoch, file=log_file)
-            if len(train_logs) > 0:
-                print("Train", file=log_file)
-            for metric, values in train_logs.items():
-                print("\t{}: {}".format(metric, values[-1]), file=log_file)
-            if len(val_logs) > 0:
-                print("Val", file=log_file)
-            for metric, values in val_logs.items():
-                print("\t{}: {}".format(metric, values[-1]), file=log_file)
-            print("", file=log_file)
-
-
-class ReduceLROnPlateau(Callback):
-    """Reduce learning rate when a metric has stopped improving.
-    Models often benefit from reducing the learning rate by a factor
-    of 2-10 once learning stagnates. This callback monitors a
-    quantity and if no improvement is seen for a 'patience' number
-    of epochs, the learning rate is reduced.
-    # Example
-    ```python
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                                  patience=5, min_lr=0.001)
-    model.fit(X_train, Y_train, callbacks=[reduce_lr])
-    ```
-    # Arguments
-        optimizer: the pytorch optimizer to modify
-        monitor: quantity to be monitored.
-        monitor_val: whether or not to monitor the validation quantity.
-        factor: factor by which the learning rate will
-            be reduced. new_lr = lr * factor
-        patience: number of epochs with no improvement
-            after which learning rate will be reduced.
-        verbose: int. 0: quiet, 1: update messages.
-        mode: one of {auto, min, max}. In `min` mode,
-            lr will be reduced when the quantity
-            monitored has stopped decreasing; in `max`
-            mode it will be reduced when the quantity
-            monitored has stopped increasing; in `auto`
-            mode, the direction is automatically inferred
-            from the name of the monitored quantity.
-        epsilon: threshold for measuring the new optimum,
-            to only focus on significant changes.
-        cooldown: number of epochs to wait before resuming
-            normal operation after lr has been reduced.
-        min_lr: lower bound on the learning rate.
-    """
-
-    def __init__(
-        self,
-        optimizer,
-        monitor,
-        monitor_val=True,
-        factor=0.1,
-        patience=10,
-        verbose=0,
-        mode="auto",
-        epsilon=1e-4,
-        cooldown=0,
-        min_lr=0,
-    ):
-        super(ReduceLROnPlateau, self).__init__()
-
-        self.optimizer = optimizer
-        self.monitor = monitor
-        self.monitor_val = monitor_val
-        if factor >= 1.0:
-            raise ValueError("ReduceLROnPlateau " "does not support a factor >= 1.0.")
-        self.factor = factor
-        self.min_lr = min_lr
-        self.epsilon = epsilon
-        self.patience = patience
-        self.verbose = verbose
-
-        self.cooldown = cooldown
-        self.cooldown_counter = 0  # Cooldown counter.
-        self.wait = 0
-        self.best = 0
-        self.mode = mode
-        self.monitor_op = None
-        self._reset()
-
-    def _reset(self):
-        """Resets wait counter and cooldown counter.
-        """
-        if self.mode not in ["auto", "min", "max"]:
-            warnings.warn(
-                "Learning Rate Plateau Reducing mode %s is unknown, "
-                "fallback to auto mode." % (self.mode),
-                RuntimeWarning,
-            )
-            self.mode = "auto"
-        if self.mode == "min" or (self.mode == "auto" and "acc" not in self.monitor):
-            self.monitor_op = lambda a, b: np.less(a, b - self.epsilon)
-            self.best = np.Inf
-        else:
-            self.monitor_op = lambda a, b: np.greater(a, b + self.epsilon)
-            self.best = -np.Inf
-        self.cooldown_counter = 0
-        self.wait = 0
-
-    def on_train_begin(self, logs=None, **kwargs):
-        self._reset()
-
-    def on_epoch_end(self, epoch, train_logs=None, val_logs=None):
-        logs = val_logs if self.monitor_val else train_logs
-        logs = logs or {}
-
-        current = logs.get(self.monitor)[-1]
-        if current is None:
-            warnings.warn(
-                "Reduce LR on plateau conditioned on metric `%s` "
-                "which is not available. Available metrics are: %s"
-                % (self.monitor, ",".join(list(logs.keys()))),
-                RuntimeWarning,
-            )
-
-        else:
-            if self.in_cooldown():
-                self.cooldown_counter -= 1
-                self.wait = 0
-
-            if self.monitor_op(current, self.best):
-                self.best = current
-                self.wait = 0
-            elif not self.in_cooldown():
-                if self.wait >= self.patience:
-                    reduced_lr = False
-                    for param_group in self.optimizer.param_groups:
-                        old_lr = param_group["lr"]
-                        if old_lr > self.min_lr:
-                            param_group["lr"] = max(old_lr * self.factor, self.min_lr)
-                            reduced_lr = True
-                    if reduced_lr:
-                        self.cooldown_counter = self.cooldown
-                        self.wait = 0
-                        if self.verbose > 0:
-                            print(
-                                "\nEpoch %05d: ReduceLROnPlateau reducing learning rate by %s factor."
-                                % (epoch + 1, self.factor)
-                            )
-
-                self.wait += 1
-
-    def in_cooldown(self):
-        return self.cooldown_counter > 0
 
 
 # TODO: Change the name to something that implies its real role more. This can change any learning parameter, not just LR.
@@ -557,10 +403,10 @@ class LRScheduler(Callback):
         self.batch_schedule = batch_schedule
         self.verbose = verbose
 
-    def on_epoch_begin(self, epoch, train_logs=None, val_logs=None):
-        new_param_dict = utils.standardize_dict_input(
-            self.schedule(epoch), default="lr"
-        )
+    def on_epoch_begin(self, logs):
+        epoch = logs.epochs
+
+        new_param_dict = utils.standardize_dict_input(self.schedule(logs), default="lr")
 
         for param_name in new_param_dict:
             # Ignore params that aren't in the param group
@@ -574,9 +420,11 @@ class LRScheduler(Callback):
                 f"\nEpoch {epoch+1}: LRScheduler setting {', '.join(f'{name}->{val}' for name, val in new_param_dict.values())}"
             )
 
-    def on_batch_begin(self, total_steps, steps_per_epoch, logs=None):
+    def on_batch_begin(self, logs):
+        steps = logs.steps
+
         new_param_dict = utils.standardize_dict_input(
-            self.batch_schedule(total_steps, steps_per_epoch), default="lr"
+            self.batch_schedule(logs), default="lr"
         )
 
         for param_name in new_param_dict:
@@ -588,7 +436,7 @@ class LRScheduler(Callback):
                 param_group[param_name] = new_param_dict[param_name]
         if self.verbose > 1:
             print(
-                f"\{total_steps}: LRScheduler setting {', '.join(f'{name}->{val}' for name, val in new_param_dict.values())}"
+                f"\{steps}: LRScheduler setting {', '.join(f'{name}->{val}' for name, val in new_param_dict.values())}"
             )
 
 
@@ -603,20 +451,25 @@ class OneCycleScheduler(LRScheduler):
         self.momentum_start = momentum_range[0]
         self.momentum_amplitude = momentum_range[1] - momentum_range[0]
 
-        def batch_schedule(total_steps, steps_per_epoch):
-            lr = self.get_step(total_steps, self.lr_start, self.lr_amplitude)
-            momentum = self.get_step(
-                total_steps, self.momentum_start, self.momentum_amplitude
+        self.lr = self.lr_start
+        self.momentum = self.momentum_start
+
+        def batch_schedule(logs):
+            steps = logs.steps
+            self.lr = self.get_step(steps, self.lr_start, self.lr_amplitude)
+            self.momentum = self.get_step(
+                steps, self.momentum_start, self.momentum_amplitude
             )
-            return {"lr": lr, "momentum": momentum}
+            return {"lr": self.lr, "momentum": self.momentum}
 
         super().__init__(optimizer, batch_schedule=batch_schedule)
 
     def get_step(self, total_steps, start_val, amplitude):
-        num_steps_in_phase = total_steps % self.period
-        change = 2 * num_steps_in_phase / self.period * amplitude
-        if self.period / 2 >= total_steps % self.period:
+        half_period = self.period / 2
+        change = (total_steps % half_period) / half_period * amplitude
+        if self.period / 2 >= (total_steps % self.period):
+            # In LR Ascension
             return change + start_val
-        if self.period / 2 < total_steps % self.period:
+        if self.period / 2 < (total_steps % self.period):
             return start_val + amplitude - change
 

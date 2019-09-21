@@ -517,7 +517,10 @@ class ImageDataset(NpDataset):
     @staticmethod
     def load_img(path_to_img, img_size=None, mode="rgb", to_float=True):
         img = imread(path_to_img)
-        # Then its a grayscale image
+        if img.ndim == 1:
+            # imread sometimes screws up
+            assert img.shape == (2,)
+            img = img[0]
         if img.ndim == 2:
             img = ImageDataset.GRAYMODE2FUNC[mode](img)
         elif np.all(img[:, :, 0:1] == img):
@@ -589,7 +592,11 @@ class ImageDataset(NpDataset):
         if all(img_shapes[0] == img_shape for img_shape in img_shapes):
             images = np.stack(images)
         else:
-            images = np.array(images, dtype="O")
+            # numpy array of variable sized elements
+            npimages = np.empty(len(images), dtype="O")
+            for i, img in enumerate(images):
+                npimages[i] = img
+            images = npimages
 
         # Turn the img shapes into an array
         img_shapes = np.array(img_shapes)

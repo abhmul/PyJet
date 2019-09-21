@@ -87,6 +87,9 @@ class SLModel(Layer):
     def add_optimizer(self, optimizer, name=None):
         self.optimizer_manager.add_optimizer(optimizer, name=name)
 
+    def get_optimizer(self, name):
+        return self.optimizer_manager.get_optimizer(name)
+
     def remove_optimizer(self, name=None):
         return self.optimizer_manager.remove_optimizer(name=name)
 
@@ -251,24 +254,40 @@ class SLModel(Layer):
         if loss_fn is not None or len(self.loss_manager):
             loss_fn, *aux_loss_fns = self.compile_loss(loss_fn)
             metrics = [loss_fn] + metrics + aux_loss_fns
-        # Set up the logs
+        # Set up the logs and callbacks
         logs = TrainingLogs()
-        # Set the model to eval mode
-        self.eval()
         callbacks = [ProgressBar(validation_steps)] if verbose > 0 else []
         callbacks = CallbackList(callbacks)
-        callbacks.on_train_begin(logs=logs)
-        callbacks.on_epoch_begin(0, logs=logs.epoch_logs)
+
+        # Begin train
+        # Set the model to eval mode
+        self.eval()
+        callbacks.on_train_begin(logs)
+
+        # Begin epoch
+        logs.on_epoch_begin()
+        callbacks.on_epoch_begin(logs)
+
         for step in range(validation_steps):
-            callbacks.on_batch_begin(epoch=0, step=step, logs=logs.batch_logs)
+            # Begin batch
+            callbacks.on_batch_begin(logs)
+
             x, target = next(val_generator)
             b_metrics, _ = self.validate_on_batch(x, target, metrics)
-            for metric, score in zip(metrics, b_metrics):
-                logs.log_metric(metric, score)
-            callbacks.on_batch_end(epoch=0, step=step, logs=logs.batch_logs)
-        callbacks.on_epoch_end(0, logs=logs.epoch_logs)
-        callbacks.on_train_end(logs=logs)
-        return logs.epoch_logs
+            # Update logs and callbacks
+            logs.log_metrics(metrics, b_metrics)
+
+            # End batch
+            logs.step()
+            callbacks.on_batch_end(logs)
+
+        # End epoch
+        logs.on_epoch_end()
+        callbacks.on_epoch_end(logs)
+
+        # End train
+        callbacks.on_train_end(logs)
+        return logs
 
     def fit_generator(
         self,
@@ -290,17 +309,17 @@ class SLModel(Layer):
         callbacks = CallbackList(callbacks)
         # If the verbosity is set, set up the progress bar
         if verbose > 0:
-            callbacks.append(ProgressBar(steps_per_epoch, epochs=epochs))
-        # Register the model with each callback
-        callbacks.set_model(self)
+            callbacks.append(ProgressBar(steps_per_epoch, total_epochs=epochs))
         # Save whether we will need to run validation
         run_validation = (validation_steps > 0) and validation_data is not None
-        logs = TrainingLogs()
+        logs = TrainingLogs(initial_epoch=initial_epoch)
 
-        # Run the callbacks
-        callbacks.on_train_begin(logs=logs)
-        # Loop through all the epochs
+        # Begin train
+        callbacks.set_model(self)
+        callbacks.on_train_begin(logs)
+
         for epoch in range(initial_epoch, epochs):
+            # Begin epoch
             # Put the model in train mode
             self.train()
             # Reset the metrics
@@ -308,26 +327,23 @@ class SLModel(Layer):
             metrics = [metric.reset() for metric in metrics]
             # Run the callbacks
             logs.on_epoch_begin()
-            callbacks.on_epoch_begin(epoch, logs=logs.epoch_logs)
-            # Run each step of the epoch with a progress bar
+            callbacks.on_epoch_begin(logs)
+
             for step in range(steps_per_epoch):
-                # Run the callbacks
-                total_steps = step + epoch * steps_per_epoch
-                callbacks.on_batch_begin(
-                    total_steps, steps_per_epoch, logs=logs.batch_logs
-                )
+                # Begin batch
+                callbacks.on_batch_begin(logs)
+
                 x, target = next(generator)
                 b_loss, b_metrics = self.train_on_batch(
                     x, target, optimizers, loss_fn, metrics
                 )
                 # Add stats to the logs
                 logs.log_metric(loss_fn, b_loss)
-                for score, metric in zip(b_metrics, metrics):
-                    logs.log_metric(metric, score)
-                # Run the callbacks
-                callbacks.on_batch_end(
-                    total_steps, steps_per_epoch, logs=logs.batch_logs
-                )
+                logs.log_metrics(metrics, b_metrics)
+
+                # End batch
+                logs.step()
+                callbacks.on_batch_end(logs)
 
             # Check if we need to run validation
             if run_validation:
@@ -337,13 +353,15 @@ class SLModel(Layer):
                     validation_data, validation_steps, metrics=([loss_fn] + metrics)
                 )
                 # Log the loss and metrics
-                for metric in [loss_fn] + metrics:
-                    logs.log_validation_metric(metric)
-            # Run the callbacks
+                logs.log_validation_metrics([loss_fn] + metrics)
+
+            # End epoch
             logs.on_epoch_end()
-            callbacks.on_epoch_end(epoch, logs=logs.epoch_logs)
-        # Run the callbacks
-        callbacks.on_train_end(logs=logs)
+            callbacks.on_epoch_end(logs)
+
+        # End train
+        callbacks.on_train_end(logs)
+        callbacks.release_model()
         # Put the model back in eval mode
         self.eval()
         return logs
